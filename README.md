@@ -11,7 +11,7 @@ Een speels weerbaarheidsspel voor Android-tablets (8 tot 10 jaar). In 17 levels 
 
 ## Downloaden
 
-Download **[SterkeBeer.apk](download/SterkeBeer.apk)** (klik op de download-knop ⬇️ rechtsboven) en open hem op de tablet. Sta *installeren uit onbekende bronnen* toe als de tablet daarom vraagt.
+👉 **[Download SterkeBeer.apk](https://github.com/Ramonnv/assertiesterke-beer/raw/main/download/SterkeBeer.apk)** (open deze link op de tablet, de download start meteen) en open daarna het bestand. Sta *installeren uit onbekende bronnen* toe als de tablet daarom vraagt.
 
 ## Zelf bouwen (Mac)
 
