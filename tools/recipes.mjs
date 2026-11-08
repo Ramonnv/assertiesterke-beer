@@ -53,7 +53,7 @@ models.beer = {
     acc_laarzenR: { pivot: [-0.17, 0.32, 0], parent: "legR" },
     acc_lantaarn: { pivot: [0.47, 0.5, 0.1], parent: "body" },
     acc_megafoon: { pivot: [-0.45, 0.55, 0], parent: "body" },
-    acc_ballon: { pivot: [0.2, 0.95, -0.3], parent: "body" },
+    acc_ballon: { pivot: [-0.45, 0.5, 0.1], parent: "armR" },
     acc_magneet: { pivot: [0.26, 0.48, 0.3], parent: "body" },
     acc_kristal: { pivot: [0.45, 0.48, 0.05], parent: "armL" },
     acc_bril: { pivot: [0, 1.25, 0.36], parent: "head" },
@@ -103,9 +103,9 @@ models.beer = {
     cone("acc_lantaarn", [0.52, 0.57, 0.12], [0.12, 0.1, 0.12], C.houtD, { seg: 4 }),
     cone("acc_megafoon", [-0.5, 0.52, 0.02], [0.11, 0.3, 0.11], C.oranje, { mat: "shiny", rot: [90, 0, 0] }),
     cyl("acc_megafoon", [-0.5, 0.52, -0.15], [0.05, 0.08, 0.05], C.zwart, { rot: [90, 0, 0] }),
-    cyl("acc_ballon", [0.2, 1.45, -0.32], [0.008, 1.0, 0.008], C.wit),
-    sph("acc_ballon", [0.2, 2.15, -0.32], [0.28, 0.32, 0.28], C.rood, { mat: "shiny" }),
-    cone("acc_ballon", [0.2, 1.82, -0.32], [0.05, 0.06, 0.05], C.rood, { rot: [180, 0, 0] }),
+    cyl("acc_ballon", [-0.5, 1.03, 0.12], [0.008, 1.0, 0.008], C.wit, { rot: [0, 0, 3] }),
+    sph("acc_ballon", [-0.53, 1.84, 0.12], [0.26, 0.3, 0.26], C.rood, { mat: "shiny" }),
+    cone("acc_ballon", [-0.53, 1.53, 0.12], [0.05, 0.06, 0.05], C.rood, { rot: [180, 0, 0] }),
     tor("acc_magneet", [0.26, 0.48, 0.32], [1, 1, 1], C.rood, { args: [0.08, 0.03], rot: [90, 0, 0], mat: "shiny" }),
     box("acc_magneet", [0.22, 0.42, 0.33], [0.04, 0.05, 0.05], C.grijs, { mat: "metal" }),
     box("acc_magneet", [0.30, 0.42, 0.33], [0.04, 0.05, 0.05], C.grijs, { mat: "metal" }),
@@ -388,4 +388,45 @@ const portraits = {
   uil: { model: "uil", target: [0, 1.15, 0], dist: 2.2 }
 };
 
-process.stdout.write(JSON.stringify({ version: 1, models, portraits }, null, 0));
+// ===================== 3D-PRINT =====================
+// Gaatjes in het poppetje (positie op het lijf, richting het lijf in, maat) en per accessoire waar hij in klikt.
+const print = {
+  scale: 62,            // 1 eenheid = 62 mm, het poppetje wordt ca. 10 cm hoog
+  pegs: { groot: { peg: 5.0, hole: 5.4, depth: 5.0 }, klein: { peg: 3.0, hole: 3.4, depth: 4.0 } },
+  sockets: {
+    hoofd:  { pos: [0, 1.575, 0],       dir: [0, -1, 0], size: "groot" },
+    ogen:   { pos: [0, 1.27, 0.385],    dir: [0, 0, -1], size: "klein" },
+    nek:    { pos: [0, 0.9, 0.27],      dir: [0, 0, -1], size: "groot" },
+    rug:    { pos: [0, 0.72, -0.35],    dir: [0, 0, 1],  size: "groot" },
+    links:  { pos: [0.42, 0.52, 0.112], dir: [0, 0, -1], size: "klein" },
+    rechts: { pos: [-0.42, 0.52, 0.112], dir: [0, 0, -1], size: "klein" },
+    riem:   { pos: [0.2, 0.5, 0.295],   dir: [0, 0, -1], size: "klein" },
+    voetL:  { pos: [0.17, 0.12, 0.16],  dir: [0, 0, -1], size: "klein" },
+    voetR:  { pos: [-0.17, 0.12, 0.16], dir: [0, 0, -1], size: "klein" }
+  },
+  // onderdelen: welke delen (parts) uit het beer-recept, in welk gaatje, en wat er weg moet zodat hij erop past
+  pieces: {
+    hoed:     { parts: ["acc_hoed"], socket: "hoofd" },
+    kroon:    { parts: ["acc_kroon"], socket: "hoofd" },
+    bril:     { parts: ["acc_bril"], socket: "ogen" },
+    sjaal:    { parts: ["acc_sjaal"], socket: "nek", keep: ["z", ">", 0.05] },
+    schelp:   { parts: [], socket: "nek", extra: [cone("x", [0, 0.88, 0.38], [0.09, 0.07, 0.04], "#ffb6c8", { rot: [90, 0, 180], seg: 9 }), P("bar", "x", [0, 0.9, 0.28], [0, 0.88, 0.36], "#ffb6c8", { r: 0.03 })] },
+    cape:     { parts: ["acc_cape"], socket: "rug", keep: ["z", "<", 0.0] },
+    vleugels: { parts: ["acc_vleugels"], socket: "rug", extra: [box("x", [0, 0.8, -0.4], [0.5, 0.1, 0.05], "#ffd1f3")] },
+    rugzak:   { parts: ["acc_rugzak"], socket: "rug" },
+    lantaarn: { parts: ["acc_lantaarn"], socket: "links", extra: [P("bar", "x", [0.42, 0.52, 0.13], [0.5, 0.47, 0.12], C.goud, { r: 0.028 })] },
+    schild:   { parts: ["acc_schild"], socket: "links", extra: [P("bar", "x", [0.42, 0.52, 0.13], [0.56, 0.6, 0.08], C.goud, { r: 0.03 })] },
+    kristal:  { parts: ["acc_kristal"], socket: "links", keep: ["z", ">", 0.04] },
+    megafoon: { parts: ["acc_megafoon"], socket: "rechts", extra: [P("bar", "x", [-0.42, 0.52, 0.13], [-0.5, 0.52, 0.06], C.oranje, { r: 0.03 })] },
+    fluit:    { parts: ["acc_fluit"], socket: "rechts", extra: [P("bar", "x", [-0.42, 0.52, 0.13], [-0.26, 0.51, 0.35], "#7ad3ff", { r: 0.025 })] },
+    armband:  { parts: ["acc_armband"], socket: "rechts", keep: ["z", ">", 0.03] },
+    ballon:   { parts: [], socket: "rechts", extra: [
+                  P("bar", "x", [-0.44, 0.5, 0.12], [-0.53, 1.55, 0.12], C.wit, { r: 0.03 }),
+                  sph("x", [-0.53, 1.84, 0.12], [0.26, 0.3, 0.26], C.rood), cone("x", [-0.53, 1.53, 0.12], [0.06, 0.07, 0.06], C.rood, { rot: [180, 0, 0] })] },
+    magneet:  { parts: ["acc_magneet"], socket: "riem" },
+    laarzen_links:  { parts: ["acc_laarzenL"], socket: "voetL", keep: ["z", ">", 0.03] },
+    laarzen_rechts: { parts: ["acc_laarzenR"], socket: "voetR", keep: ["z", ">", 0.03] }
+  }
+};
+
+process.stdout.write(JSON.stringify({ version: 1, models, portraits, print }, null, 0));

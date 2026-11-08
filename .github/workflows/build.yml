@@ -45,15 +45,47 @@ jobs:
             web
             !web/dev-*.html
 
+  # 1b. Blender maakt het 3D-printbare poppetje met klik-accessoires
+  print:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Blender installeren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
+          curl -sSL https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz | tar -xJ
+          echo "$PWD/blender-4.2.3-linux-x64" >> "$GITHUB_PATH"
+      - name: Printbestanden maken (Blender CLI)
+        env:
+          SB_SAMPLES: "64"
+        run: |
+          node tools/recipes.mjs > web/assets/models.json
+          mkdir -p print
+          blender -b --factory-startup -P blender/build_print.py -- web/assets/models.json print
+      - name: Inpakken
+        run: |
+          cp tools/PRINTEN.md print/LEESMIJ-PRINTEN.md
+          cd print && zip -q ../SterkeBeer-3Dprint.zip *.stl printset.png LEESMIJ-PRINTEN.md && cd .. && ls -la print SterkeBeer-3Dprint.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: print
+          path: |
+            SterkeBeer-3Dprint.zip
+            print/printset.png
+
   # 2. De Android-app (APK)
   apk:
-    needs: modellen
+    needs: [modellen, print]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: web, path: web }
+      - uses: actions/download-artifact@v4
+        with: { name: print, path: printart }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - uses: actions/setup-dotnet@v4
@@ -73,12 +105,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete nieuwste -y --cleanup-tag || true
-          gh release create nieuwste SterkeBeer.apk --title "Sterke Beer: Moedeiland (nieuwste versie)" --latest \
-            --notes "Download **SterkeBeer.apk** hieronder op de tablet en open hem. Gebouwd vanaf ${GITHUB_SHA::7}. Je voortgang blijft bewaard bij een update."
+          {
+            echo "**SterkeBeer.apk**: download op de tablet en open hem. Je voortgang blijft bewaard bij een update."
+            echo ""
+            echo "**SterkeBeer-3Dprint.zip**: het Beer-poppetje en alle superkracht-accessoires om te 3D-printen (STL). Lees LEESMIJ-PRINTEN.md in de zip."
+            echo ""
+            echo "Gebouwd vanaf ${GITHUB_SHA::7}."
+          } > notes.md
+          gh release create nieuwste SterkeBeer.apk printart/SterkeBeer-3Dprint.zip printart/print/printset.png --title "Sterke Beer: Moedeiland (nieuwste versie)" --latest --notes-file notes.md
 
   # 3. De web-app op GitHub Pages
   web:
-    needs: modellen
+    needs: [modellen, print]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -86,6 +124,10 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { name: web, path: web }
+      - uses: actions/download-artifact@v4
+        with: { name: print, path: printart }
+      - name: Printbestanden op de website
+        run: mkdir -p web/print && cp printart/SterkeBeer-3Dprint.zip printart/print/printset.png web/print/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: web }

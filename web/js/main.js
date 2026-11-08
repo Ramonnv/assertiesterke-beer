@@ -218,6 +218,7 @@ async function finishQuest(i, ctx, replay) {
       await wait(2600);
       const hints = { cape: 'Probeer de Hoge Klif in het oosten eens. Spring maar!', lantaarn: 'Het Schaduwbos in het zuidwesten is nu niet meer eng.', megafoon: 'Druk op 📣 bij het Mistpad in het noordwesten!', ballon: 'Spring van de Hoge Klif en houd springen ingedrukt… zie je dat eilandje?', schelp: 'Tik op 🐚 om te reizen.', fluit: 'Tik op 🎶 bij de vossen.' };
       if (hints[item]) toast('💡 ' + hints[item], 5000);
+      else toast(`🖨️ Je ${ITEMS[item].name} bestaat ook echt! Vraag papa of mama om hem te 3D-printen voor je Beer-poppetje.`, 5000);
     }
     await missionCard(i);
   }
@@ -438,6 +439,11 @@ function menuOuders() {
       <div class="row"><button class="btn small white" id="cp">📋 Kopieer code</button></div>
       <p class="mt">Code terugzetten:</p><textarea id="rs" placeholder="Plak hier een back-upcode (SB2-…)"></textarea>
       <div class="row"><button class="btn small purple" id="rsb">♻️ Terugzetten</button></div></div>
+    <div class="card"><h3>🖨️ Beer-poppetje printen</h3>
+      <p>Alle superkrachten bestaan ook als 3D-print. Print het poppetje één keer, en elke nieuwe superkracht die je kind wint als accessoire dat erop klikt.</p>
+      <img src="print/printset.png" alt="" style="width:100%;border-radius:16px;margin:6px 0" onerror="this.remove()">
+      <p>Gewonnen tot nu toe: <b>${S.items.length ? S.items.map(i => ITEMS[i].name).join(', ') : 'nog niets'}</b></p>
+      <p>Download: <a href="print/SterkeBeer-3Dprint.zip" target="_blank">SterkeBeer-3Dprint.zip</a> (ook te vinden op GitHub onder Releases).</p></div>
     <div class="card"><label class="toggle"><input type="checkbox" id="pm" ${S.parent ? 'checked' : ''}> Alle missies openzetten (niet wachten tot morgen)</label>
       <div class="row mt"><button class="btn small white" id="nm">✏️ Naam wijzigen</button><button class="btn small red" id="reset">🗑️ Opnieuw beginnen</button></div></div></div>`;
   const m = mbody();
