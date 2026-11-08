@@ -9,7 +9,11 @@ Een speels weerbaarheidsspel voor Android-tablets (8 tot 10 jaar). In 17 levels 
 - het verschil tussen zelf oplossen en hulp halen
 - geven en nemen: wanneer hou je vast en wanneer geef je mee
 
-## Downloaden
+## Spelen als web-app (geen installatie nodig)
+
+Open **https://ramonnv.github.io/assertiesterke-beer/** in Chrome op de tablet, tik op **⋮ → Toevoegen aan startscherm** (of *App installeren*). Dan staat Sterke Beer als app-icoon op het startscherm en werkt het ook offline.
+
+## Downloaden (APK)
 
 👉 **[Download SterkeBeer.apk](https://github.com/Ramonnv/assertiesterke-beer/raw/main/download/SterkeBeer.apk)** (open deze link op de tablet, de download start meteen) en open daarna het bestand. Sta *installeren uit onbekende bronnen* toe als de tablet daarom vraagt.
 
