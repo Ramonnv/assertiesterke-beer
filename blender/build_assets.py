@@ -214,7 +214,7 @@ def setup_render():
     except Exception: pass
     w = bpy.data.worlds.new("w"); sc.world = w; w.use_nodes = True
     bg = w.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (0.72, 0.82, 1.0, 1); bg.inputs[1].default_value = 0.9
+    bg.inputs[0].default_value = (0.72, 0.82, 1.0, 1); bg.inputs[1].default_value = 0.45
 
 def add_light(name, loc, target, energy, size, color=(1, 1, 1)):
     ld = bpy.data.lights.new(name, "AREA"); ld.energy = energy; ld.size = size; ld.color = color
@@ -232,9 +232,9 @@ def shoot(target3, dist, path, dir3=(0.32, 0.18, 1.0), lens=60):
     cam.location = target + d * dist
     cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.camera = cam
-    key = add_light("key", target + v3((1.6, 2.2, 2.4)) * (dist / 2), target, 260 * (dist / 2) ** 2, 2.5, (1.0, 0.95, 0.88))
-    fill = add_light("fill", target + v3((-2.2, 0.6, 1.6)) * (dist / 2), target, 90 * (dist / 2) ** 2, 3.0, (0.85, 0.9, 1.0))
-    rim = add_light("rim", target + v3((0.4, 1.6, -2.4)) * (dist / 2), target, 220 * (dist / 2) ** 2, 1.5, (1.0, 0.9, 1.0))
+    key = add_light("key", target + v3((1.6, 2.2, 2.4)) * (dist / 2), target, 140 * (dist / 2) ** 2, 2.5, (1.0, 0.95, 0.88))
+    fill = add_light("fill", target + v3((-2.2, 0.6, 1.6)) * (dist / 2), target, 45 * (dist / 2) ** 2, 3.0, (0.85, 0.9, 1.0))
+    rim = add_light("rim", target + v3((0.4, 1.6, -2.4)) * (dist / 2), target, 120 * (dist / 2) ** 2, 1.5, (1.0, 0.9, 1.0))
     bpy.context.scene.render.filepath = path
     t = time.time()
     bpy.ops.render.render(write_still=True)
@@ -281,11 +281,11 @@ for name in names:
                 mn, mx = world_bbox(objs)
                 c = (mn + mx) / 2
                 size = max((mx - mn).length, 0.2)
-                shoot(to_three(c), size * 1.9, os.path.join(OUT, "icons", item + ".png"), dir3=(0.55, 0.35, 1.0), lens=50)
+                shoot(to_three(c), size * 1.2, os.path.join(OUT, "icons", item + ".png"), dir3=(0.55, 0.35, 1.0), lens=50)
             # heel de beer, voor het titelscherm
             for pn, ob in parts.items():
                 ob.hide_render = pn.startswith("acc_") and pn not in ("acc_cape", "acc_sjaal")
-            shoot([0, 0.85, 0], 3.2, os.path.join(OUT, "portraits", "beer_full.png"), dir3=(0.45, 0.2, 1.0), lens=50)
+            shoot([0, 0.85, 0], 2.7, os.path.join(OUT, "portraits", "beer_full.png"), dir3=(0.45, 0.2, 1.0), lens=50)
     if name == "star" and os.environ.get("SB_RENDER", "1") == "1":
         setup_render()
         shoot([0, 0, 0], 2.2, os.path.join(OUT, "icons", "moedster.png"), dir3=(0.3, 0.2, 1.0))

@@ -313,8 +313,9 @@ function buildProps() {
   }
   // Schaduwbos
   for (let i = 0; i < 80; i++) {
-    const a = r() * 6.3, d = 3 + r() * 7.5, x = Z.schaduw[0] + Math.cos(a) * d, z = Z.schaduw[1] + Math.sin(a) * d;
+    const a = r() * 6.3, d = 6.8 + r() * 3.8, x = Z.schaduw[0] + Math.cos(a) * d, z = Z.schaduw[1] + Math.sin(a) * d;
     if (height(x, z) < 0.4 || colliders.some(c => Math.hypot(c.x - x, c.z - z) < c.r + 2.4)) continue;
+    if (Math.atan2(z - Z.schaduw[1], x - Z.schaduw[0]) > -1.3 && Math.atan2(z - Z.schaduw[1], x - Z.schaduw[0]) < -0.2) continue; // pad naar binnen
     const s = 0.9 + r() * 0.4; darks.push({ pos: V(x, height(x, z) - 0.1, z), rot: r() * 6, scale: s }); colliders.push({ x, z, r: 0.6 * s });
   }
   for (let i = 0; i < 6; i++) { const a = i / 6 * 6.3, x = Z.schaduw[0] + Math.cos(a) * 2.2, z = Z.schaduw[1] + Math.sin(a) * 2.2; place('crystal', x, z, { rot: a, scale: 0.9 + r() * 0.5 }); }
@@ -333,6 +334,15 @@ function buildProps() {
     flowers.push({ pos: V(x, h, z), rot: r() * 6, scale: 0.8 + r() * 0.6 });
   }
   for (let i = 0; i < 40; i++) { const a = r() * 6.3, d = r() * 8, x = Z.schaduw[0] + Math.cos(a) * d, z = Z.schaduw[1] + Math.sin(a) * d; shrooms.push({ pos: V(x, height(x, z), z), rot: r() * 6, scale: 0.8 + r() }); }
+  // rotswanden rond de Hoge Klif
+  const cliffRocks = [];
+  for (let i = 0; i < 30; i++) {
+    const a = i / 30 * Math.PI * 2, f = Math.cos(a - Math.atan2(-Z.klif[1], -Z.klif[0]));
+    const ring = (rad, ys, sc) => ys.forEach(y => cliffRocks.push({ pos: V(Z.klif[0] + Math.cos(a + r() * 0.1) * rad, y, Z.klif[1] + Math.sin(a + r() * 0.1) * rad), rot: r() * 6, scale: sc + r() * 0.5 }));
+    if (f > 0.45) { ring(LEDGE_R + 0.2, [-0.2, 1.1], 1.6); ring(KLIF_R + 0.3, [2.6, 3.8], 1.6); }
+    else ring(KLIF_R + 0.4, [-0.2, 1.5, 3.2], 2.1);
+  }
+  scene.add(M.instanced('rock', cliffRocks));
   scene.add(M.instanced('tree', trees), M.instanced('pine', pines), M.instanced('darktree', darks), M.instanced('bush', bushes),
     M.instanced('rock', rocks), M.instanced('flower', flowers), M.instanced('mushroom', shrooms));
 }
@@ -355,6 +365,17 @@ function buildCharacters() {
   playerParts = player.userData.parts;
   player.userData.vel = V(0, 0, 0); player.userData.ground = true; player.userData.safe = player.position.clone(); player.userData.jumps = 0;
   applyLook();
+  // silhouet: blijft zichtbaar als een boom voor de beer staat
+  const xray = new THREE.MeshBasicMaterial({ color: '#ffd23f', transparent: true, opacity: 0.45, depthWrite: false, depthFunc: THREE.GreaterDepth });
+  curveMat(xray);
+  const meshes = []; player.traverse(o => { if (o.isMesh) meshes.push(o); });
+  meshes.forEach(o => {
+    // eigen materiaal voor de speler; 'transparent' zodat het silhouet vóór de beer getekend wordt
+    o.material = o.material.clone(); o.material.userData = {}; curveMat(o.material);
+    if (!o.material.transparent) { o.material.transparent = true; o.material.opacity = 1; }
+    o.renderOrder = 10;
+    const g = new THREE.Mesh(o.geometry, xray); g.renderOrder = 5; g.raycast = () => {}; g.castShadow = false; o.add(g);
+  });
   lanternLight = new THREE.PointLight('#ffd27a', 0, 9, 1.6); lanternLight.position.set(0.5, 1.0, 0.4); player.add(lanternLight);
 
   for (const [id, n] of Object.entries(NPCS)) {
@@ -670,7 +691,8 @@ export function update(dt) {
   /* --- donker in het Schaduwbos --- */
   const inDark = inZone(pos.x, pos.z, 'schaduw', 10.5) ? smooth(10.5, 6, dist2(pos.x, pos.z, Z.schaduw)) : 0;
   dark = lerp(dark, inDark, Math.min(1, dt * 2));
-  hemi.intensity = 1.0 * (1 - 0.8 * dark); sun.intensity = 2.9 * (1 - 0.9 * dark);
+  hemi.intensity = 1.0 * (1 - 0.8 * dark); sun.intensity = 2.9 * (1 - 0.92 * dark);
+  renderer.toneMappingExposure = 1.05 * (1 - 0.45 * dark); scene.fog.near = lerp(38, 6, dark); scene.fog.far = lerp(120, 26, dark);
   scene.fog.color.set('#cdeeff').lerp(new THREE.Color('#1c1846'), dark);
   scene.userData.sky.material.uniforms.dark.value = dark;
   waterMats.forEach(m => m.uniforms.dark.value = dark);

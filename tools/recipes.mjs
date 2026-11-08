@@ -381,11 +381,11 @@ models.bridge = prop([
 
 // Wie spreekt in de dialogen + hoe het portret gerenderd wordt
 const portraits = {
-  beer: { model: "beer", target: [0, 1.2, 0], dist: 1.6 },
-  muis: { model: "muis", target: [0, 0.85, 0], dist: 1.25 },
-  draak: { model: "draak", target: [0, 1.5, 0.1], dist: 1.9 },
-  vos: { model: "vos", target: [0, 1.1, 0.1], dist: 1.6 },
-  uil: { model: "uil", target: [0, 1.25, 0], dist: 1.7 }
+  beer: { model: "beer", target: [0, 1.12, 0], dist: 2.05 },
+  muis: { model: "muis", target: [0, 0.8, 0], dist: 1.6 },
+  draak: { model: "draak", target: [0, 1.4, 0.1], dist: 2.5 },
+  vos: { model: "vos", target: [0, 1.02, 0.1], dist: 2.05 },
+  uil: { model: "uil", target: [0, 1.15, 0], dist: 2.2 }
 };
 
 process.stdout.write(JSON.stringify({ version: 1, models, portraits }, null, 0));
