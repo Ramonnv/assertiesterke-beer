@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1. Installeer alles (eenmalig)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/setup.sh"],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "2. Bouw de APK",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/build.sh"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "3. Zet op tablet (USB)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/install-tablet.sh"],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    }
+  ]
+}
