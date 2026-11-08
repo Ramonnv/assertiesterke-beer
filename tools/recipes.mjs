@@ -416,13 +416,15 @@ const print = {
     rugzak:   { parts: ["acc_rugzak"], socket: "rug" },
     lantaarn: { parts: ["acc_lantaarn"], socket: "links", extra: [P("bar", "x", [0.42, 0.52, 0.13], [0.5, 0.47, 0.12], C.goud, { r: 0.028 })] },
     schild:   { parts: ["acc_schild"], socket: "links", extra: [P("bar", "x", [0.42, 0.52, 0.13], [0.56, 0.6, 0.08], C.goud, { r: 0.03 })] },
-    kristal:  { parts: ["acc_kristal"], socket: "links", keep: ["z", ">", 0.04] },
+    kristal:  { parts: [], socket: "links", extra: [
+                  ico("x", [0.43, 0.52, 0.2], [0.07, 0.1, 0.07], C.kristal), tor("x", [0.43, 0.52, 0.2], [1, 1, 1], C.goud, { args: [0.085, 0.022], rot: [90, 0, 0] }),
+                  P("bar", "x", [0.42, 0.52, 0.1], [0.43, 0.52, 0.17], C.goud, { r: 0.03 })] },
     megafoon: { parts: ["acc_megafoon"], socket: "rechts", extra: [P("bar", "x", [-0.42, 0.52, 0.13], [-0.5, 0.52, 0.06], C.oranje, { r: 0.03 })] },
     fluit:    { parts: ["acc_fluit"], socket: "rechts", extra: [P("bar", "x", [-0.42, 0.52, 0.13], [-0.26, 0.51, 0.35], "#7ad3ff", { r: 0.025 })] },
     armband:  { parts: ["acc_armband"], socket: "rechts", keep: ["z", ">", 0.03] },
     ballon:   { parts: [], socket: "rechts", extra: [
-                  P("bar", "x", [-0.44, 0.5, 0.12], [-0.53, 1.55, 0.12], C.wit, { r: 0.03 }),
-                  sph("x", [-0.53, 1.84, 0.12], [0.26, 0.3, 0.26], C.rood), cone("x", [-0.53, 1.53, 0.12], [0.06, 0.07, 0.06], C.rood, { rot: [180, 0, 0] })] },
+                  P("bar", "x", [-0.43, 0.5, 0.14], [-0.5, 1.2, 0.14], C.rood, { r: 0.04 }),
+                  sph("x", [-0.52, 1.45, 0.14], [0.22, 0.26, 0.22], C.rood), cone("x", [-0.52, 1.19, 0.14], [0.06, 0.07, 0.06], C.rood, { rot: [180, 0, 0] })] },
     magneet:  { parts: ["acc_magneet"], socket: "riem" },
     laarzen_links:  { parts: ["acc_laarzenL"], socket: "voetL", keep: ["z", ">", 0.03] },
     laarzen_rechts: { parts: ["acc_laarzenR"], socket: "voetR", keep: ["z", ">", 0.03] }

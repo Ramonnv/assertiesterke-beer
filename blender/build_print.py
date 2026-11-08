@@ -175,7 +175,7 @@ for name, pc in PR["pieces"].items():
 # ---------------- render van de hele set ----------------
 if os.environ.get("SB_RENDER", "1") == "1":
     remove(mold)
-    body.data.materials.clear(); body.data.materials.append(get_mat("#f3eee6", "shiny"))
+    body.data.materials.clear(); body.data.materials.append(get_mat("#d9a873", "shiny"))
     names = list(pieces.keys()); n = len(names)
     FLOOR = -3.7
     for i, nm in enumerate(names):
@@ -186,17 +186,17 @@ if os.environ.get("SB_RENDER", "1") == "1":
         ring = 105 if i % 2 else 80
         ob.location += Vector((math.cos(a) * ring * 1.25 - c.x, math.sin(a) * ring + 20 - c.y, FLOOR - minz))
     deselect()
-    bpy.ops.mesh.primitive_plane_add(size=900, location=(0, 0, FLOOR))
+    bpy.ops.mesh.primitive_plane_add(size=6000, location=(0, 0, FLOOR))
     floor = bpy.context.view_layer.objects.active
     floor.data.materials.append(get_mat("#d9ecff", "cloth"))
     setup_render()
     sc = bpy.context.scene; sc.render.film_transparent = False
     sc.render.resolution_x = 1400; sc.render.resolution_y = 900
-    cam_d = bpy.data.cameras.new("cam"); cam_d.lens = 32
+    cam_d = bpy.data.cameras.new("cam"); cam_d.lens = 36
     cam = bpy.data.objects.new("cam", cam_d); bpy.context.collection.objects.link(cam)
-    cam.location = (0, -260, 230); tgt = Vector((0, 40, 20))
+    cam.location = (0, -250, 250); tgt = Vector((0, 40, 20))
     cam.rotation_euler = (tgt - cam.location).to_track_quat("-Z", "Y").to_euler(); sc.camera = cam
-    for nm_, rot, en, col in (("zon", (0.7, 0.2, 0.6), 3.2, (1, 0.96, 0.9)), ("vul", (1.0, -0.3, -2.4), 1.0, (0.85, 0.9, 1))):
+    for nm_, rot, en, col in (("zon", (0.7, 0.2, 0.6), 1.7, (1, 0.96, 0.9)), ("vul", (1.0, -0.3, -2.4), 0.5, (0.85, 0.9, 1))):
         ld = bpy.data.lights.new(nm_, "SUN"); ld.energy = en; ld.color = col; ld.angle = 0.2
         lo = bpy.data.objects.new(nm_, ld); bpy.context.collection.objects.link(lo); lo.rotation_euler = rot
     sc.render.filepath = os.path.join(OUTP, "printset.png")
