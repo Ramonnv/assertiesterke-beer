@@ -68,6 +68,7 @@ async function startGame() {
   $('#title').classList.remove('on');
   $('#hud').classList.add('on');
   mode = 'play'; SND.win(); musicOn(S.music);
+  W.setQuality(S.gfx !== 'snel'); perf.t = 0; perf.n = 0; perf.sum = 0;
   refreshQuest();
   if (!S.seenIntro) {
     W.introSweep();
@@ -85,10 +86,20 @@ function tip(id, msg) { if (S.tips[id]) return; S.tips[id] = 1; save(); setTimeo
 
 /* ================= de lus ================= */
 let last = performance.now(), titleT = 0, hudT = 0;
+const perf = { t: 0, n: 0, sum: 0, done: false };
+function checkPerf(dt) {
+  if (perf.done || S.gfx) return;
+  perf.t += dt; if (perf.t < 2) return; // eerst even laten opwarmen
+  perf.n++; perf.sum += dt;
+  if (perf.t > 7) {
+    perf.done = true;
+    if (perf.sum / perf.n > 1 / 26) { S.gfx = 'snel'; save(); W.setQuality(false); toast('⚡ Ik heb de effecten wat lichter gemaakt, zodat het spel soepel loopt. (Menu → Opties)', 4500); }
+  }
+}
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (mode === 'title' || mode === 'loading') { titleT += dt; W.titleCamera(titleT); W.renderOnly(dt); }
-  else { W.update(dt); hudT += dt; if (hudT > 0.1) { hudT = 0; updateHUD(); } positionSpeech(); }
+  else { W.update(dt); checkPerf(dt); hudT += dt; if (hudT > 0.1) { hudT = 0; updateHUD(); } positionSpeech(); }
   requestAnimationFrame(loop);
 }
 
@@ -202,6 +213,7 @@ async function finishQuest(i, ctx, replay) {
   W.facePlayer(npc);
   await say(npc, QUESTS[i].outro);
   // sterren-scherm
+  W.fireworks(stars * 3);
   await resultScreen(i, stars, totalStars() - before, rankBefore, first);
   if (first && !S.rewards[i]) {
     let options;
@@ -214,7 +226,7 @@ async function finishQuest(i, ctx, replay) {
       S.items.push(item); S.rewards[i] = item; save();
       W.applyLook(); W.burst(W.playerPos().clone().setY(W.playerPos().y + 1), '#ffd23f', 80, 4, 3);
       banner('Nieuwe superkracht!', `${ITEMS[item].name}: ${ITEMS[item].power}`, ITEM_EMOJI[item]);
-      confetti(70);
+      confetti(70); W.fireworks(10);
       await wait(2600);
       const hints = { cape: 'Probeer de Hoge Klif in het oosten eens. Spring maar!', lantaarn: 'Het Schaduwbos in het zuidwesten is nu niet meer eng.', megafoon: 'Druk op 📣 bij het Mistpad in het noordwesten!', ballon: 'Spring van de Hoge Klif en houd springen ingedrukt… zie je dat eilandje?', schelp: 'Tik op 🐚 om te reizen.', fluit: 'Tik op 🎶 bij de vossen.' };
       if (hints[item]) toast('💡 ' + hints[item], 5000);
@@ -260,8 +272,14 @@ function showCert() {
   });
 }
 
+function floatText(x, y, txt) {
+  const d = document.createElement('div'); d.className = 'floattxt'; d.textContent = txt;
+  d.style.left = x + 'px'; d.style.top = y + 'px'; document.body.appendChild(d); setTimeout(() => d.remove(), 1300);
+}
+
 /* ================= zijmissies ================= */
-function onStar(gain) {
+function onStar(gain, pos) {
+  if (pos) { const sp = W.toScreen(pos); floatText(sp.x, sp.y, `+${gain} ✨`); }
   $('#moedN').textContent = S.moed;
   $('#moed').classList.remove('bump'); void $('#moed').offsetWidth; $('#moed').classList.add('bump');
   refreshQuest();
@@ -404,6 +422,7 @@ function menuOpties() {
   mbody().innerHTML = `<div class="opts-list">
     <label class="toggle"><input type="checkbox" id="o-m" ${S.music ? 'checked' : ''}> 🎵 Muziek</label>
     <label class="toggle"><input type="checkbox" id="o-s" ${S.sound ? 'checked' : ''}> 🔊 Geluidjes</label>
+    <label class="toggle"><input type="checkbox" id="o-g" ${S.gfx !== 'snel' ? 'checked' : ''}> ✨ Mooie effecten (gloed, glinsters)</label>
     <div class="zoomrow">🔍 Camera <button class="btn small white" id="zin">Dichterbij</button><button class="btn small white" id="zout">Verder weg</button></div>
     <div class="help"><h3>Hoe speel je?</h3>
       <p>👆 <b>Lopen:</b> sleep met je duim op de linkerkant van het scherm (of WASD / pijltjes).</p>
@@ -412,6 +431,7 @@ function menuOpties() {
       <p>⭐ <b>Missies:</b> volg de gele pijl. Elke dag gaat er een nieuwe missie open.</p></div></div>`;
   mbody().querySelector('#o-m').onchange = e => { S.music = e.target.checked; save(); musicOn(S.music); };
   mbody().querySelector('#o-s').onchange = e => { S.sound = e.target.checked; save(); };
+  mbody().querySelector('#o-g').onchange = e => { S.gfx = e.target.checked ? 'mooi' : 'snel'; save(); W.setQuality(e.target.checked); };
   mbody().querySelector('#zin').onclick = () => W.setZoom(W.getZoom() * 0.85);
   mbody().querySelector('#zout').onclick = () => W.setZoom(W.getZoom() * 1.15);
 }

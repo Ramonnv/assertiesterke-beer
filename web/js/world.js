@@ -1,6 +1,11 @@
 // Moedeiland: de 3D-wereld (terrein, water, lucht, gras, personages, besturing, camera).
 import * as THREE from 'three';
 import * as M from './models.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { S, save, has, legend, today } from './state.js';
 import { SND } from './audio.js';
 import { NPCS } from './story.js';
@@ -74,7 +79,7 @@ const colliders = []; // {x, z, r}
 const interactables = []; // {pos, r, label, kind, ref}
 let player, playerParts, lanternLight, muisMaatje, arrow;
 const npcs = {}; const foxes = []; const stars = []; const bubbles = []; let chest, mistGroup, mistParticles, shockwaves = [];
-let fx; // particles
+// (deeltjes: zie verderop)
 let dark = 0;
 const cam = { zoom: 1, shake: 0, target: V(0, 0, 0), intro: 0 };
 export const input = { x: 0, z: 0, mag: 0, jump: false, jumpPressed: false, frozen: false };
@@ -115,7 +120,13 @@ export async function init(canvas, h, onProgress) {
   scene.fog = new THREE.Fog('#cdeeff', 38, 120);
   camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 400);
   clock = new THREE.Clock();
-  addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+  setupPost();
+  addEventListener('resize', () => {
+    renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+    if (composer) { composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth / 2, innerHeight / 2); }
+    PSCALE.value = innerHeight * renderer.getPixelRatio() * 1.3;
+  });
+  PSCALE.value = innerHeight * renderer.getPixelRatio() * 1.3;
 
   hemi = new THREE.HemisphereLight('#e3f4ff', '#b89a6c', 1.0); scene.add(hemi);
   sun = new THREE.DirectionalLight('#fff1dc', 2.9);
@@ -134,6 +145,40 @@ export async function init(canvas, h, onProgress) {
   curveAll(scene);
   return fromBlender;
 }
+
+/* ============ nabewerking: gloed, vignet, kleur ============ */
+let composer = null, bloom = null, grade = null;
+export const GFX = { fancy: true };
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, uVig: { value: 0.32 }, uSat: { value: 1.12 }, uDark: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uVig, uSat, uDark; varying vec2 vUv;
+    void main(){ vec4 c = texture2D(tDiffuse, vUv); float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      c.rgb = mix(vec3(l), c.rgb, uSat);
+      vec2 d = vUv - 0.5; float v = 1.0 - dot(d, d) * (uVig + uDark * 0.9) * 2.0;
+      c.rgb *= clamp(v, 0.0, 1.0);
+      c.rgb += vec3(0.012, 0.008, 0.0); // een vleugje warmte
+      gl_FragColor = c; }`
+};
+function setupPost() {
+  try {
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.45, 0.97);
+    composer.addPass(bloom);
+    grade = new ShaderPass(GradeShader); composer.addPass(grade);
+    composer.addPass(new OutputPass());
+  } catch (e) { console.warn('nabewerking uit', e); composer = null; GFX.fancy = false; }
+}
+export function setQuality(fancy) {
+  GFX.fancy = fancy && !!composer;
+  renderer.setPixelRatio(fancy ? Math.min(devicePixelRatio || 1, 1.75) : 1);
+  renderer.setSize(innerWidth, innerHeight);
+  if (composer) composer.setSize(innerWidth, innerHeight);
+  PSCALE.value = innerHeight * renderer.getPixelRatio() * 1.3;
+  if (glints) glints.visible = fancy;
+}
+function draw() { if (GFX.fancy && composer) composer.render(); else renderer.render(scene, camera); }
 
 /* ============ lucht en wolken ============ */
 function buildSky() {
@@ -219,6 +264,8 @@ function waterMaterial() {
         vec3 c = mix(shallow, deep, smoothstep(0.0, 1.0, depth));
         float ripple = sin(vW.x*1.7 + uTime*1.5 + sin(vW.z*1.3)) * sin(vW.z*1.9 - uTime*1.1);
         c += vec3(0.08) * smoothstep(0.6, 1.0, ripple);
+        float gl = sin(vW.x * 3.1 + uTime * 2.3) * sin(vW.z * 2.7 - uTime * 1.7) * sin((vW.x + vW.z) * 1.9 + uTime * 3.1);
+        c += vec3(1.0, 0.95, 0.8) * smoothstep(0.86, 1.0, gl) * 2.2 * (1.0 - dark);
         float foam = smoothstep(0.42, 0.0, -h) * (0.55 + 0.45*sin(uTime*2.0 + length(vW.xz)*1.6));
         c = mix(c, vec3(1.0), clamp(foam, 0.0, 1.0)*0.85);
         float a = mix(0.72, 0.92, depth);
@@ -358,7 +405,10 @@ function marker() {
   g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(64, 64, 54, 0, 7); g.fill(); g.lineWidth = 8; g.strokeStyle = '#fff'; g.stroke();
   g.fillStyle = '#5b3b00'; g.font = '900 84px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', 64, 70);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); s.scale.setScalar(0.75); s.renderOrder = 10; return s;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); s.scale.setScalar(0.75); s.renderOrder = 10;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: DOT, color: '#ffd23f', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false }));
+  glow.scale.setScalar(2.2); glow.renderOrder = 9; s.add(glow); s.userData.glow = glow;
+  return s;
 }
 function buildCharacters() {
   player = makeChar('beer', S.pos ? S.pos[0] : Z.huis[0] + 1, S.pos ? S.pos[1] : Z.huis[1] + 3.5);
@@ -445,7 +495,10 @@ function buildStars() {
     if (S.stars.includes(i)) return;
     const o = M.get('star'); const h = s[2] !== undefined ? Math.max(s[2], height(s[0], s[1])) : height(s[0], s[1]);
     o.position.set(s[0], h + 0.9, s[1]); o.scale.setScalar(0.85); scene.add(o);
-    stars.push({ obj: o, id: i, base: o.position.y });
+    o.traverse(m => { if (m.isMesh && m.material.emissive) { m.material = m.material.clone(); m.material.userData = {}; m.material.emissiveIntensity = 1.25; } });
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: DOT, color: '#ffd23f', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    halo.scale.setScalar(2.2); o.add(halo);
+    stars.push({ obj: o, id: i, base: o.position.y, halo });
   });
 }
 
@@ -499,37 +552,125 @@ function buildGates() {
   }
 }
 
-/* ============ deeltjes ============ */
-function buildFx() {
-  const n = 600, g = new THREE.BufferGeometry();
+/* ============ deeltjes (gloed en stof) ============ */
+let fx, soft, glints, butterflies = [], rings = [];
+function particleSystem(n, additive) {
+  const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3).fill(-999), 3));
-  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.45, map: DOT, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  pts.frustumCulled = false; scene.add(pts);
-  fx = { pts, n, i: 0, life: new Float32Array(n), vel: new Float32Array(n * 3) };
-  // vuurvliegjes in het Schaduwbos en vonken bij de vulkaan
-  scene.userData.ambient = [];
+  g.setAttribute('pcolor', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(n), 1));
+  g.setAttribute('size', new THREE.BufferAttribute(new Float32Array(n), 1));
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    uniforms: { uCurve: CURVE, map: { value: DOT }, uScale: PSCALE },
+    vertexShader: `attribute vec3 pcolor; attribute float alpha; attribute float size; uniform float uCurve, uScale; varying vec3 vC; varying float vA;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); mv.y -= uCurve * mv.z * mv.z; gl_Position = projectionMatrix * mv;
+        gl_PointSize = size * uScale / max(0.1, -mv.z); vC = pcolor; vA = alpha; }`,
+    fragmentShader: `uniform sampler2D map; varying vec3 vC; varying float vA;
+      void main(){ float a = texture2D(map, gl_PointCoord).a * vA; if (a < 0.01) discard; gl_FragColor = vec4(vC, a); }`
+  });
+  m.userData.curved = true;
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; scene.add(pts);
+  return { pts, n, i: 0, life: new Float32Array(n), max: new Float32Array(n), vel: new Float32Array(n * 3), size0: new Float32Array(n), grow: new Float32Array(n), grav: new Float32Array(n) };
 }
-export function burst(p, color = '#ffd23f', count = 24, speed = 4, up = 2) {
-  const pos = fx.pts.geometry.attributes.position, col = fx.pts.geometry.attributes.color, c = new THREE.Color(color);
+const PSCALE = { value: 600 };
+function buildFx() {
+  fx = particleSystem(900, true);
+  soft = particleSystem(500, false);
+  // zwevende glinsters (pollen in de zon, vuurvliegjes in het donker)
+  const n = 260, g = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), ph = new Float32Array(n);
+  for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - .5) * 60; pos[i * 3 + 1] = Math.random() * 6; pos[i * 3 + 2] = (Math.random() - .5) * 60; ph[i] = Math.random() * 100; }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('phase', new THREE.BufferAttribute(ph, 1));
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uTime: TIME, uCurve: CURVE, uCenter: { value: V(0, 0, 0) }, uDark: { value: 0 }, map: { value: DOT }, uScale: PSCALE },
+    vertexShader: `attribute float phase; uniform float uTime, uCurve, uDark, uScale; uniform vec3 uCenter; varying float vA;
+      void main(){ vec3 p = position;
+        p.x += sin(uTime * 0.23 + phase) * 2.0; p.z += cos(uTime * 0.19 + phase * 1.3) * 2.0; p.y += sin(uTime * 0.5 + phase) * 0.6;
+        p.xz = mod(p.xz - uCenter.xz + 30.0, 60.0) - 30.0 + uCenter.xz; p.y += uCenter.y + 0.3;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.y -= uCurve * mv.z * mv.z; gl_Position = projectionMatrix * mv;
+        float tw = 0.5 + 0.5 * sin(uTime * (1.5 + fract(phase) * 2.0) + phase * 7.0);
+        vA = tw * (0.35 + uDark * 0.65) * smoothstep(40.0, 10.0, -mv.z);
+        gl_PointSize = (0.07 + 0.08 * uDark) * uScale * (0.6 + tw) / max(0.1, -mv.z); }`,
+    fragmentShader: `uniform sampler2D map; uniform float uDark; varying float vA;
+      void main(){ float a = texture2D(map, gl_PointCoord).a * vA; if (a < 0.01) discard;
+        gl_FragColor = vec4(mix(vec3(1.0, 0.96, 0.8), vec3(0.75, 1.0, 0.45), uDark) * 1.6, a); }`
+  });
+  m.userData.curved = true;
+  glints = new THREE.Points(g, m); glints.frustumCulled = false; scene.add(glints);
+  // vlinders
+  const cols = ['#ff8fcf', '#ffd23f', '#8fd3ff', '#ffffff', '#c49bff', '#ff9f5a'];
+  const wing = new THREE.CircleGeometry(0.13, 10); wing.scale(1, 0.75, 1);
+  const r = rng(99);
+  for (let i = 0; i < 18; i++) {
+    let x, z; do { const a = r() * 6.3, d = 8 + r() * 38; x = Math.cos(a) * d; z = Math.sin(a) * d; } while (height(x, z) < 0.5 || inZone(x, z, 'schaduw', 11));
+    const mat = new THREE.MeshStandardMaterial({ color: cols[i % cols.length], emissive: cols[i % cols.length], emissiveIntensity: 0.35, side: THREE.DoubleSide, roughness: 0.6 });
+    const b = new THREE.Group(), L = new THREE.Mesh(wing, mat), R = new THREE.Mesh(wing, mat);
+    L.position.x = 0.11; R.position.x = -0.11; L.rotation.x = R.rotation.x = -Math.PI / 2;
+    const pl = new THREE.Group(), pr = new THREE.Group(); pl.add(L); pr.add(R); b.add(pl, pr);
+    b.position.set(x, height(x, z) + 1, z); scene.add(b);
+    butterflies.push({ obj: b, L: pl, R: pr, home: V(x, 0, z), target: V(x, 0, z), t: r() * 10, sp: 1.2 + r() });
+  }
+}
+function emit(sys, p, color, count, speed, up, size, life, grow = 0, grav = 4) {
+  const pos = sys.pts.geometry.attributes.position, col = sys.pts.geometry.attributes.pcolor, c = new THREE.Color(color);
   for (let k = 0; k < count; k++) {
-    const i = fx.i = (fx.i + 1) % fx.n;
+    const i = sys.i = (sys.i + 1) % sys.n;
     pos.setXYZ(i, p.x, p.y, p.z); col.setXYZ(i, c.r, c.g, c.b);
     const a = Math.random() * 6.3, s = speed * (0.3 + Math.random() * 0.7);
-    fx.vel[i * 3] = Math.cos(a) * s; fx.vel[i * 3 + 1] = up * (0.5 + Math.random()); fx.vel[i * 3 + 2] = Math.sin(a) * s; fx.life[i] = 1;
+    sys.vel[i * 3] = Math.cos(a) * s; sys.vel[i * 3 + 1] = up * (0.5 + Math.random()); sys.vel[i * 3 + 2] = Math.sin(a) * s;
+    sys.life[i] = sys.max[i] = life * (0.7 + Math.random() * 0.6); sys.size0[i] = size * (0.7 + Math.random() * 0.6); sys.grow[i] = grow; sys.grav[i] = grav;
   }
 }
-function updateFx(dt) {
-  const pos = fx.pts.geometry.attributes.position, col = fx.pts.geometry.attributes.color;
-  for (let i = 0; i < fx.n; i++) {
-    if (fx.life[i] <= 0) continue;
-    fx.life[i] -= dt * 1.1;
-    fx.vel[i * 3 + 1] -= 4 * dt;
-    pos.setXYZ(i, pos.getX(i) + fx.vel[i * 3] * dt, pos.getY(i) + fx.vel[i * 3 + 1] * dt, pos.getZ(i) + fx.vel[i * 3 + 2] * dt);
-    if (fx.life[i] <= 0) pos.setXYZ(i, -999, -999, -999);
-    else { const f = Math.min(1, fx.life[i] * 2); col.setXYZ(i, col.getX(i) * (0.97 + 0.03 * f), col.getY(i) * (0.97 + 0.03 * f), col.getZ(i) * (0.97 + 0.03 * f)); }
+export function burst(p, color = '#ffd23f', count = 24, speed = 4, up = 2) { emit(fx, p, color, count, speed, up, 0.42, 0.95); }
+export function puff(p, color = '#efe3c8', count = 4, speed = 0.6, up = 0.5, size = 0.55) { emit(soft, p, color, count, speed, up, size, 0.7, 1.6, -0.4); }
+function stepSys(sys, dt) {
+  const pos = sys.pts.geometry.attributes.position, al = sys.pts.geometry.attributes.alpha, sz = sys.pts.geometry.attributes.size;
+  for (let i = 0; i < sys.n; i++) {
+    if (sys.life[i] <= 0) { if (al.getX(i) !== 0) { al.setX(i, 0); pos.setXYZ(i, -999, -999, -999); } continue; }
+    sys.life[i] -= dt;
+    sys.vel[i * 3 + 1] -= sys.grav[i] * dt;
+    sys.vel[i * 3] *= 0.985; sys.vel[i * 3 + 2] *= 0.985;
+    pos.setXYZ(i, pos.getX(i) + sys.vel[i * 3] * dt, pos.getY(i) + sys.vel[i * 3 + 1] * dt, pos.getZ(i) + sys.vel[i * 3 + 2] * dt);
+    const f = Math.max(0, sys.life[i] / sys.max[i]);
+    al.setX(i, Math.min(1, f * 2.2)); sz.setX(i, sys.size0[i] * (1 + (1 - f) * sys.grow[i]) * (0.6 + 0.4 * Math.min(1, f * 3)));
   }
-  pos.needsUpdate = true; col.needsUpdate = true;
+  pos.needsUpdate = true; al.needsUpdate = true; sz.needsUpdate = true;
+}
+function updateFx(dt) {
+  stepSys(fx, dt); stepSys(soft, dt);
+  if (glints) { glints.material.uniforms.uCenter.value.copy(cam.target); glints.material.uniforms.uDark.value = dark; }
+  for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.t += dt; r.m.scale.setScalar(0.3 + r.t * 5); r.m.material.opacity = 0.9 * (1 - r.t / 0.5); if (r.t > 0.5) { scene.remove(r.m); rings.splice(i, 1); } }
+}
+function ring(p, color) {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 8, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.position.copy(p); m.lookAt(camera.position); curveMat(m.material); scene.add(m); rings.push({ m, t: 0 });
+}
+// Vuurwerk boven het eiland (na een hoofdmissie)
+export function fireworks(n = 9) {
+  const cols = ['#ff5d8f', '#ffd23f', '#5de2ff', '#9b7bff', '#7cf0a8', '#ff9f5a'];
+  for (let k = 0; k < n; k++) setTimeout(() => {
+    const p = player.position.clone().add(V((Math.random() - .5) * 14, 7 + Math.random() * 5, -4 - Math.random() * 6));
+    const c = cols[k % cols.length];
+    emit(fx, p, c, 70, 7, 1.5, 0.55, 1.6, 0, 2.2); emit(fx, p, '#ffffff', 12, 2, 1, 0.8, 0.5, 0, 0);
+    SND.pop();
+  }, k * 330);
+}
+
+function updateButterflies(dt) {
+  const pp = player ? player.position : V(0, 0, 0);
+  for (const b of butterflies) {
+    const o = b.obj; if (o.position.distanceTo(pp) > 45) continue;
+    b.t += dt;
+    const f = Math.sin(b.t * 18) * 1.1; b.L.rotation.z = f; b.R.rotation.z = -f;
+    const dx = b.target.x - o.position.x, dz = b.target.z - o.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.6 || b.t % 7 < dt) { const a = Math.random() * 6.3, r = 2 + Math.random() * 5; b.target.set(b.home.x + Math.cos(a) * r, 0, b.home.z + Math.sin(a) * r); }
+    o.position.x += dx / (d || 1) * b.sp * dt; o.position.z += dz / (d || 1) * b.sp * dt;
+    o.position.y = height(o.position.x, o.position.z) + 0.9 + Math.sin(b.t * 2.3) * 0.35;
+    o.rotation.y = Math.atan2(dx, dz);
+    // vlucht een beetje als de beer dichtbij komt
+    if (o.position.distanceTo(pp) < 1.6) { b.target.set(o.position.x + (o.position.x - pp.x) * 3, 0, o.position.z + (o.position.z - pp.z) * 3); }
+  }
 }
 
 /* ============ acties van superkrachten ============ */
@@ -641,7 +782,8 @@ export function update(dt) {
     if (u.ground || u.jumps < maxJumps) {
       const jv = (has('cape') ? 10.8 : 7.2) * (u.ground ? 1 : 0.85) * Math.sqrt(L);
       u.vel.y = jv; u.ground = false; u.jumps++; SND.jump();
-      if (u.jumps === 2) burst(pos.clone().add(V(0, 0.6, 0)), '#ffc4f0', 16, 2, 0.5);
+      if (u.jumps === 2) { burst(pos.clone().add(V(0, 0.6, 0)), '#ffc4f0', 20, 2.5, 0.5); ring(pos.clone().add(V(0, 0.4, 0)), '#ffc4f0'); }
+      else puff(pos.clone().add(V(0, 0.05, 0)), '#f1e6cc', 5, 1.2, 0.2, 0.5);
     }
   }
   input.jumpPressed = false;
@@ -668,7 +810,7 @@ export function update(dt) {
   pos.y += u.vel.y * dt;
   const gh = height(pos.x, pos.z);
   if (pos.y <= gh) {
-    if (!u.ground && u.vel.y < -6) { SND.land(); burst(pos.clone().add(V(0, 0.1, 0)), '#f3e6c8', 10, 2, 0.6); }
+    if (!u.ground && u.vel.y < -6) { SND.land(); puff(pos.clone().add(V(0, 0.1, 0)), '#f1e6cc', 10, 1.8, 0.3, 0.7); }
     pos.y = gh; u.vel.y = 0; u.ground = true; u.jumps = 0;
   } else if (pos.y - gh > 0.08) { u.ground = false; if (u.jumps === 0) u.jumps = 1; }
   // water
@@ -678,7 +820,7 @@ export function update(dt) {
     hooks.toast && hooks.toast('💦 Oei, nat! Beren kunnen hier niet zwemmen.' + (has('ballon') ? '' : ''));
   }
   if (u.ground && gh > 0.1) { saveT += dt; if (saveT > 0.6) { u.safe.copy(pos); saveT = 0; } }
-  if (u.ground && Math.hypot(u.vel.x, u.vel.z) > 1) { stepT += dt * (sprint ? 1.6 : 1); if (stepT > 0.32) { stepT = 0; SND.land && Math.random() < 0.5 && 0; } }
+  if (u.ground && Math.hypot(u.vel.x, u.vel.z) > 1.5) { stepT += dt * (sprint ? 1.8 : 1); if (stepT > 0.26) { stepT = 0; const back = V(-Math.sin(player.rotation.y) * 0.3, 0.05, -Math.cos(player.rotation.y) * 0.3); puff(pos.clone().add(back), gh < 0.45 ? '#f6e7b8' : '#e3efc8', sprint ? 3 : 2, 0.5, 0.4, sprint ? 0.6 : 0.45); } }
   animChar(player, dt, u.ground && Math.hypot(u.vel.x, u.vel.z) > 0.6, Math.hypot(u.vel.x, u.vel.z));
   if (!u.ground) { playerParts.legL.rotation.x = -0.5; playerParts.legR.rotation.x = 0.3; playerParts.armL.rotation.z = gliding ? -1.2 : -0.5; playerParts.armR.rotation.z = gliding ? 1.2 : 0.5; }
 
@@ -704,7 +846,14 @@ export function update(dt) {
     const target = d < 4 ? Math.atan2(pos.x - o.position.x, pos.z - o.position.z) : (o.userData.faceTo ?? n.face);
     let dd = target - o.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); o.rotation.y += dd * Math.min(1, dt * 4);
     animChar(o, dt, false, 0);
-    if (n.marker.visible) n.marker.position.y = (n.id === 'draak' ? 2.6 : n.id === 'muis' ? 1.6 : 2.2) + Math.sin(TIME.value * 3) * 0.12;
+    if (n.marker.visible) { n.marker.position.y = (n.id === 'draak' ? 2.6 : n.id === 'muis' ? 1.6 : 2.2) + Math.sin(TIME.value * 3) * 0.12; n.marker.userData.glow.material.opacity = 0.5 + 0.35 * Math.sin(TIME.value * 4); if (Math.random() < dt * 3) burst(n.obj.localToWorld(n.marker.position.clone()), '#ffe27a', 1, 0.6, 0.8); }
+    // sfeer per personage
+    if (d < 25) {
+      n.fxT = (n.fxT || 0) + dt;
+      if (n.id === 'draak' && n.fxT > 1.6) { n.fxT = 0; const h = n.obj.userData.parts.head; if (h) { const np = h.localToWorld(V(0, 1.5 - 1.25, 0.62)); puff(np, '#cfcfd8', 3, 0.3, 0.7, 0.35); } }
+      if (n.id === 'muis' && n.fxT > 2.2 && d < 8) { n.fxT = 0; burst(n.obj.position.clone().add(V(0, 1.3, 0)), '#ff7eb6', 3, 0.4, 1.2); }
+      if (n.id === 'uil' && n.fxT > 3 && d < 10) { n.fxT = 0; burst(n.obj.position.clone().add(V(0, 1.8, 0)), '#bda7ff', 4, 0.5, 1); }
+    }
   }
   if (scene.userData.blades) scene.userData.blades.rotation.z += dt * 0.8;
 
@@ -734,14 +883,16 @@ export function update(dt) {
   for (let i = stars.length - 1; i >= 0; i--) {
     const s = stars[i], o = s.obj;
     o.rotation.y += dt * 2; o.position.y = s.base + Math.sin(TIME.value * 2 + s.id) * 0.15;
+    s.halo.material.opacity = 0.35 + 0.25 * Math.sin(TIME.value * 3 + s.id);
     const dx = pos.x - o.position.x, dz = pos.z - o.position.z, dy = pos.y + 0.8 - o.position.y, d = Math.hypot(dx, dz, dy * 0.6);
     if (d < magnet && Math.abs(dy) < (has('magneet') ? 4 : 1.6)) {
       if (d > 1.0) { o.position.x += dx * dt * 6; o.position.z += dz * dt * 6; s.base += dy * dt * 6; }
       else {
         scene.remove(o); stars.splice(i, 1); S.stars.push(s.id);
         const gain = has('rugzak') ? 2 : 1; S.moed += gain; save(); SND.star();
-        burst(o.position.clone(), '#ffd23f', 30, 3, 2.5);
-        hooks.star && hooks.star(gain);
+        burst(o.position.clone(), '#ffd23f', 40, 3.5, 2.8); burst(o.position.clone(), '#ffffff', 12, 1.5, 1.5);
+        ring(o.position.clone(), '#ffd23f');
+        hooks.star && hooks.star(gain, o.position.clone());
       }
     }
   }
@@ -766,10 +917,11 @@ export function update(dt) {
     ambientT = 0;
     if (dist2(pos.x, pos.z, Z.vulkaan) < 30) burst(V(Z.vulkaan[0] + (Math.random() - .5) * 2, height(Z.vulkaan[0], Z.vulkaan[1]) + 0.5, Z.vulkaan[1] + (Math.random() - .5) * 2), '#ff8a3d', 2, 1, 3);
     if (dark > 0.2) burst(V(Z.schaduw[0] + (Math.random() - .5) * 16, 1 + Math.random() * 2, Z.schaduw[1] + (Math.random() - .5) * 16), '#c6ff7a', 1, 0.3, 0.3);
+    if (dist2(pos.x, pos.z, Z.vulkaan) < 30 && Math.random() < 0.3) puff(V(Z.vulkaan[0] + (Math.random() - .5) * 1.5, height(Z.vulkaan[0], Z.vulkaan[1]) + 0.8, Z.vulkaan[1] + (Math.random() - .5) * 1.5), '#b9b3c4', 1, 0.3, 1.2, 1.4);
     stars.forEach(s => { if (Math.random() < 0.15 && s.obj.position.distanceTo(pos) < 25) burst(s.obj.position.clone().add(V((Math.random() - .5) * .6, (Math.random() - .5) * .6, 0)), '#fff2a8', 1, 0.4, 0.6); });
   }
   scene.userData.clouds.forEach(c => { c.position.x += c.userData.speed * dt; if (c.position.x > 120) c.position.x = -120; });
-  updateFx(dt);
+  updateFx(dt); updateButterflies(dt);
 
   /* --- muis-maatje --- */
   if (muisMaatje.visible) {
@@ -804,10 +956,11 @@ export function update(dt) {
 
   /* --- opslaan van positie --- */
   if (Math.random() < dt * 0.5) { S.pos = [pos.x, pos.z]; save(); }
-  renderer.render(scene, camera);
+  if (grade) grade.uniforms.uDark.value = dark;
+  draw();
 }
 
-export function renderOnly(dt) { TIME.value += dt; updateFx(dt); scene.userData.clouds.forEach(c => { c.position.x += c.userData.speed * dt; }); renderer.render(scene, camera); }
+export function renderOnly(dt) { TIME.value += dt; updateFx(dt); updateButterflies(dt); scene.userData.clouds.forEach(c => { c.position.x += c.userData.speed * dt; }); draw(); }
 export function titleCamera(t) {
   const a = t * 0.06;
   camera.position.set(Math.sin(a) * 38, 22 + Math.sin(t * 0.2) * 2, Math.cos(a) * 38);

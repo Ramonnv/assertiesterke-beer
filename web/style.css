@@ -294,3 +294,13 @@ input.name, .t-name input { font-family: inherit; font-size: 28px; font-weight: 
   .jumpbtn { width: 84px; height: 84px; font-size: 38px; } .actbtn { height: 66px; font-size: 17px; }
   .dlg { padding: 20px 20px 22px 118px; min-height: 120px; } .dlg-port { width: 112px; height: 120px; font-size: 76px; } .nametag { left: 104px; } .dlg-text { font-size: 19px; }
 }
+
+/* zwevende tekstjes en extra glans */
+.floattxt { position: fixed; z-index: 45; transform: translate(-50%, -50%); font-weight: 800; font-size: 26px; color: #fff; pointer-events: none;
+  text-shadow: 0 3px 0 #e2a400, 0 0 16px rgba(255,210,63,.9); animation: floatup 1.3s ease-out forwards; }
+@keyframes floatup { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -260%) scale(1); } }
+.actbtn.on { animation: shine 2.4s ease-in-out infinite; }
+@keyframes shine { 0%,100% { box-shadow: 0 7px 0 #d6a600, 0 10px 22px rgba(0,0,0,.25); } 50% { box-shadow: 0 7px 0 #d6a600, 0 0 30px rgba(255,210,63,.95); } }
+#moed { position: relative; overflow: hidden; }
+#moed::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.8), transparent); animation: sweep 3.5s infinite; }
+@keyframes sweep { 0%, 70% { left: -60%; } 100% { left: 130%; } }
