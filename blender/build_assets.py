@@ -60,14 +60,8 @@ def get_mat(color, kind):
     setin(b, ["Roughness"], rough)
     if kind == "metal":
         setin(b, ["Metallic"], 0.7)
-    if kind in ("fur", "cloth"):
-        setin(b, ["Sheen Weight", "Sheen"], 0.6)
-        setin(b, ["Sheen Tint"], (1, 1, 1, 1))
     if kind in ("skin", "shiny"):
-        setin(b, ["Coat Weight", "Clearcoat"], 0.35)
-    if kind in ("fur", "skin"):
-        setin(b, ["Subsurface Weight", "Subsurface"], 0.08)
-        setin(b, ["Subsurface Radius"], (0.4, 0.2, 0.1))
+        setin(b, ["Coat Weight", "Clearcoat"], 0.25)
     if kind in ("emit", "glow"):
         setin(b, ["Emission Color", "Emission"], col)
         setin(b, ["Emission Strength"], 1.6 if kind == "emit" else 0.5)

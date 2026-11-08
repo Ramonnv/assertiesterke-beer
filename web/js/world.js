@@ -240,8 +240,8 @@ function buildWater() {
 /* ============ gras (wiegt in de wind) ============ */
 function buildGrass() {
   const blade = new THREE.BufferGeometry();
-  blade.setAttribute('position', new THREE.Float32BufferAttribute([-0.05, 0, 0, 0.05, 0, 0, 0, 0.42, 0], 3));
-  blade.setAttribute('color', new THREE.Float32BufferAttribute([0.24, 0.55, 0.25, 0.24, 0.55, 0.25, 0.7, 0.95, 0.45], 3));
+  blade.setAttribute('position', new THREE.Float32BufferAttribute([-0.055, 0, 0, 0.055, 0, 0, 0, 0.34, 0], 3));
+  blade.setAttribute('color', new THREE.Float32BufferAttribute([0.38, 0.7, 0.32, 0.38, 0.7, 0.32, 0.78, 0.97, 0.52], 3));
   blade.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 1 });
   mat.onBeforeCompile = sh => {
