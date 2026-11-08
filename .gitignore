@@ -1,6 +1,6 @@
 bin/
 obj/
-*.apk
+/*.apk
 setup.log
 build.log
 .DS_Store
