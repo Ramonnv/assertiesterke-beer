@@ -16,6 +16,6 @@ Een speels weerbaarheidsspel voor Android-tablets (8 tot 10 jaar). In 17 levels 
 ## Zelf bouwen (Mac)
 
 Dubbelklik op `Installeer-en-bouw.command` (eenmalig: dit installeert .NET 10, Java 17 en de Android SDK in je gebruikersmap en bouwt de APK).
-Later opnieuw bouwen: `Bouw-APK.command`. Meer uitleg staat in [LEESMIJ.md](LEESMIJ.md).
+Later opnieuw bouwen: `Bouw-APK.command`. Via een USB-kabel op de tablet zetten (USB-foutopsporing aan): `Zet-op-tablet.command`. Meer uitleg staat in [LEESMIJ.md](LEESMIJ.md).
 
 Het spel zelf staat in `Assets/index.html` (HTML/JS). Je kunt het ook gewoon in een browser openen om te testen.
