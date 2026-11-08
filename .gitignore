@@ -5,3 +5,4 @@ setup.log
 build.log
 tablet.log
 .DS_Store
+/Assets/

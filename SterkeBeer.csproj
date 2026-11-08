@@ -10,8 +10,8 @@
 
     <ApplicationId>nl.sterkebeer.spel</ApplicationId>
     <ApplicationTitle>Sterke Beer</ApplicationTitle>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
 
     <!-- Lever een .apk op (geen .aab) zodat je hem direct op de tablet kunt zetten -->
     <AndroidPackageFormat>apk</AndroidPackageFormat>

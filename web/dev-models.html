@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#bfe6ff}</style>
+<script type="importmap">{"imports":{"three":"./lib/three.module.min.js","three/addons/":"./lib/addons/"}}</script></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { loadRecipes, buildFromRecipe } from './js/models.js';
+const R = await loadRecipes();
+const q = new URLSearchParams(location.search); const only = q.get('m');
+const names = only ? only.split(',') : Object.keys(R.models);
+const r = new THREE.WebGLRenderer({antialias:true}); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled=true;
+r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const s = new THREE.Scene(); s.background = new THREE.Color('#bfe6ff');
+s.add(new THREE.HemisphereLight('#dff4ff','#8a7a5a',1.6)); const d=new THREE.DirectionalLight('#fff3dd',2.5); d.position.set(4,8,6); d.castShadow=true; s.add(d);
+const cols = Math.ceil(Math.sqrt(names.length)); const sp = only? 2.2: 4.5;
+names.forEach((n,i)=>{ const m=buildFromRecipe(n); m.position.set((i%cols - (cols-1)/2)*sp, 0, Math.floor(i/cols)*sp); s.add(m); const all=q.get('acc'); m.traverse(o=>{ if(o.name&&o.name.startsWith('acc_')) o.visible = all ? (all==='all' || all.split(',').some(a=>o.name.startsWith('acc_'+a))) : false; }); });
+const g = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({color:'#9be27f'})); g.rotation.x=-Math.PI/2; g.receiveShadow=true; s.add(g);
+const rows = Math.ceil(names.length/cols);
+const cam = new THREE.PerspectiveCamera(35, innerWidth/innerHeight, 0.1, 500);
+const z = only ? 4.5 : rows*sp*1.25+4; cam.position.set(0, only? 1.6 : z*0.7, (rows-1)*sp/2 + z); cam.lookAt(0, only?0.8:0.5, (rows-1)*sp/2);
+r.render(s,cam); window.DONE=true;
+</script></body></html>

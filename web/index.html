@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f1650">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Sterke Beer: Moedeiland</title>
+<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="loading">
+  <div class="ld-inner">
+    <div class="ld-bear">🐻</div>
+    <div class="ld-title">STERKE BEER</div>
+    <div class="ld-sub">Moedeiland wordt gebouwd…</div>
+    <div class="ld-bar"><i id="loadbar"></i></div>
+    <div id="loadmsg" class="ld-msg"></div>
+  </div>
+</div>
+
+<div id="title"></div>
+
+<div id="hud">
+  <div id="quest" class="hud-card"></div>
+  <div id="topright">
+    <div class="hud-pills">
+      <div class="pill" id="moed">✨ <span id="moedN">0</span></div>
+      <div class="pill" id="rank"><span id="rankN"></span></div>
+      <button class="roundbtn" id="menuBtn" aria-label="Menu">☰</button>
+    </div>
+    <canvas id="mini" width="150" height="150"></canvas>
+  </div>
+  <div id="joyzone"></div>
+  <div id="joy"><div id="knob"></div></div>
+  <div id="btns">
+    <button id="pw-schelp" class="pw" aria-label="Snelreizen">🐚</button>
+    <button id="pw-fluit" class="pw" aria-label="Rustfluit">🎶</button>
+    <button id="pw-brul" class="pw" aria-label="Beer-brul">📣</button>
+    <button id="act" class="actbtn"><b>💬</b><span>Praat</span></button>
+    <button id="jump" class="jumpbtn" aria-label="Springen">⤒</button>
+  </div>
+  <div id="toast"></div>
+</div>
+
+<div id="speech"></div>
+<div id="duel"></div>
+<div id="dialog"></div>
+<div id="panel" class="panel"></div>
+
+<script>window.SB_APP = location.hostname === 'appassets.androidplatform.net' || location.hostname === 'sterkebeer.app';</script>
+<script type="module" src="js/main.js"></script>
+<script>if ('serviceWorker' in navigator && !window.SB_APP && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});</script>
+</body>
+</html>

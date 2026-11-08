@@ -1,0 +1,93 @@
+name: Bouw Sterke Beer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: bouw-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 1. Blender bouwt de 3D-modellen en rendert portretten en iconen
+  modellen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Blender installeren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
+          curl -sSL https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz | tar -xJ
+          echo "$PWD/blender-4.2.3-linux-x64" >> "$GITHUB_PATH"
+      - name: Recepten controleren
+        run: node tools/recipes.mjs > /tmp/models.json && cmp -s /tmp/models.json web/assets/models.json || cp /tmp/models.json web/assets/models.json
+      - name: Modellen bouwen en renderen (Blender CLI)
+        env:
+          SB_SAMPLES: "96"
+          SB_RES: "384"
+        run: blender -b --factory-startup -P blender/build_assets.py -- web/assets/models.json web/assets
+      - name: Lettertype ophalen
+        run: python3 tools/get_font.py web/fonts || echo "lettertype overgeslagen"
+      - name: Overzicht
+        run: ls -la web/assets/models web/assets/portraits web/assets/icons
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: |
+            web
+            !web/dev-*.html
+
+  # 2. De Android-app (APK)
+  apk:
+    needs: modellen
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: web, path: web }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
+      - name: Android-onderdelen voor .NET
+        run: dotnet workload install android
+      - name: Spel in de app zetten
+        run: rm -rf Assets && cp -r web Assets && rm -f Assets/dev-*.html
+      - name: APK bouwen
+        run: dotnet publish SterkeBeer.csproj -f net10.0-android -c Release "-p:AndroidSdkDirectory=$ANDROID_SDK_ROOT"
+      - name: APK klaarzetten
+        run: cp "$(ls bin/Release/net10.0-android/publish/*-Signed.apk | head -1)" SterkeBeer.apk && ls -la SterkeBeer.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: SterkeBeer-apk, path: SterkeBeer.apk }
+      - name: Release bijwerken
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete nieuwste -y --cleanup-tag || true
+          gh release create nieuwste SterkeBeer.apk --title "Sterke Beer: Moedeiland (nieuwste versie)" --latest \
+            --notes "Download **SterkeBeer.apk** hieronder op de tablet en open hem. Gebouwd vanaf ${GITHUB_SHA::7}. Je voortgang blijft bewaard bij een update."
+
+  # 3. De web-app op GitHub Pages
+  web:
+    needs: modellen
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: web, path: web }
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: web }
+      - id: deploy
+        uses: actions/deploy-pages@v4

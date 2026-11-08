@@ -1,25 +1,30 @@
-# 🐻 Sterke Beer
+# 🐻 Sterke Beer: Moedeiland
 
-Een speels weerbaarheidsspel voor Android-tablets (8 tot 10 jaar). In 17 levels (één nieuw level per dag) leert je kind:
+Een 3D-avonturenspel over weerbaarheid voor kinderen van 8 tot 10 jaar. Je bent een jonge beer op **Moedeiland**,
+helpt Juf Uil, Muis, Draak en zelfs Plaagvos, en leert ondertussen hoe je stevig, rustig en snel reageert op plagen.
 
-- stevig staan en praten met een Beer-stem
-- de Stop-hand en grenzen aangeven
-- snel en rustig reageren op pestkoppen (Stop – Zeg – Ga, “Kan zijn.”)
-- gemene gedachten omdraaien
-- het verschil tussen zelf oplossen en hulp halen
-- geven en nemen: wanneer hou je vast en wanneer geef je mee
+- **17 hoofdmissies**: elke dag gaat er één nieuwe open
+- **Dagelijkse klusjes**: plaagvossen "saai maken", gedachten-bubbels omdraaien, rust bij de vijver
+- **30 moedsterren** verstopt op het eiland, en een schatkist
+- Na elke missie **kies je een cadeau** met een **superkracht** (superspring, zweven, lantaarn, beer-brul, ...).
+  Sommige superkrachten openen nieuwe plekken op het eiland.
+- Na elke missie een **missie in het echt**, om samen met papa of mama te doen
 
-## Spelen als web-app (geen installatie nodig)
+## Spelen
 
-Open **https://ramonnv.github.io/assertiesterke-beer/** in Chrome op de tablet, tik op **⋮ → Toevoegen aan startscherm** (of *App installeren*). Dan staat Sterke Beer als app-icoon op het startscherm en werkt het ook offline.
+- **Web-app:** https://ramonnv.github.io/assertiesterke-beer/ (op de tablet: ⋮ → *Toevoegen aan startscherm*)
+- **Android-app:** download de nieuwste **SterkeBeer.apk** onder [Releases](../../releases/latest)
 
-## Downloaden (APK)
+Voortgang wordt op het apparaat bewaard. In het menu → *Ouders* kun je een back-upcode maken.
 
-👉 **[Download SterkeBeer.apk](https://github.com/Ramonnv/assertiesterke-beer/raw/main/download/SterkeBeer.apk)** (open deze link op de tablet, de download start meteen) en open daarna het bestand. Sta *installeren uit onbekende bronnen* toe als de tablet daarom vraagt.
+## Hoe het gebouwd wordt
 
-## Zelf bouwen (Mac)
+Bij elke push bouwt **GitHub Actions** alles automatisch:
 
-Dubbelklik op `Installeer-en-bouw.command` (eenmalig: dit installeert .NET 10, Java 17 en de Android SDK in je gebruikersmap en bouwt de APK).
-Later opnieuw bouwen: `Bouw-APK.command`. Via een USB-kabel op de tablet zetten (USB-foutopsporing aan): `Zet-op-tablet.command`. Meer uitleg staat in [LEESMIJ.md](LEESMIJ.md).
+1. **Blender** (CLI, headless) bouwt de 3D-modellen uit `tools/recipes.mjs` → `web/assets/models/*.glb`
+   en rendert met Cycles de portretten en superkracht-iconen (`blender/build_assets.py`).
+2. **.NET for Android** verpakt het spel in een APK (zie `MainActivity.cs`) en zet hem bij *Releases*.
+3. De web-app wordt gepubliceerd op **GitHub Pages**.
 
-Het spel zelf staat in `Assets/index.html` (HTML/JS). Je kunt het ook gewoon in een browser openen om te testen.
+Het spel zelf staat in `web/` (three.js). Lokaal testen: `cd web && python3 -m http.server` en open http://localhost:8000.
+Zonder Blender-modellen bouwt de game dezelfde modellen zelf op uit de recepten.
