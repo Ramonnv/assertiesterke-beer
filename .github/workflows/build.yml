@@ -99,12 +99,15 @@ jobs:
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
         run: |
-          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/sterkebeer.keystore"; echo "SIGN=1" >> "$GITHUB_ENV";
-          else echo "::warning::Geen vaste ondertekensleutel ingesteld (secret ANDROID_KEYSTORE_B64). Updates kunnen dan niet over de bestaande app heen."; fi
+          # Geheime sleutel als die is ingesteld, anders de sleutel uit de repo (signing/)
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/sterkebeer.keystore";
+          else cp signing/sterkebeer.keystore "$RUNNER_TEMP/sterkebeer.keystore"; echo "KP_REPO=1" >> "$GITHUB_ENV"; fi
+          echo "SIGN=1" >> "$GITHUB_ENV"
       - name: APK bouwen
         env:
-          KP: ${{ secrets.ANDROID_KEY_PASS }}
+          KP_SECRET: ${{ secrets.ANDROID_KEY_PASS }}
         run: |
+          if [ "$KP_REPO" = "1" ]; then export KP="ODOLeWJnPW3K6EkikS1Eq6pQHkeobmfv"; else export KP="$KP_SECRET"; fi
           CODE=$((100 + GITHUB_RUN_NUMBER))
           EXTRA=""
           if [ "$SIGN" = "1" ]; then EXTRA="-p:AndroidKeyStore=true -p:AndroidSigningKeyStore=$RUNNER_TEMP/sterkebeer.keystore -p:AndroidSigningKeyAlias=sterkebeer -p:AndroidSigningKeyPass=env:KP -p:AndroidSigningStorePass=env:KP"; fi
