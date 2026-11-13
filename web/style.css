@@ -304,3 +304,21 @@ input.name, .t-name input { font-family: inherit; font-size: 28px; font-weight: 
 #moed { position: relative; overflow: hidden; }
 #moed::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.8), transparent); animation: sweep 3.5s infinite; }
 @keyframes sweep { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+
+/* awards */
+#giftBtn { position: relative; }
+#giftN { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; border-radius: 11px; background: #ff4d6d; color: #fff; font-size: 13px; line-height: 22px; display: none; padding: 0 5px; }
+#giftN.on { display: block; animation: bump .6s; }
+.award-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 10px 0; }
+.award { width: 120px; background: #fff9ec; border-radius: 16px; padding: 8px; text-align: center; box-shadow: 0 4px 0 rgba(45,35,70,.12); }
+.award img { width: 88px; height: 88px; object-fit: contain; }
+.award b { display: block; font-size: 15px; }
+.award small { display: block; font-size: 12px; color: #8f87b5; }
+.award.got { opacity: .55; }
+.award.new { animation: pop .6s; box-shadow: 0 0 0 4px #ffd23f; }
+.award-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #eee; }
+.award-row img { width: 44px; height: 44px; object-fit: contain; }
+.award-row span { flex: 1; }
+.award-row code { font-size: 11px; color: #8f87b5; }
+.parent input.field, .parent select.field { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 2px solid #ddd6ff; margin: 4px 0 8px; box-sizing: border-box; }
+.report-frame { max-height: 60vh; overflow: auto; text-align: left; border-radius: 16px; }

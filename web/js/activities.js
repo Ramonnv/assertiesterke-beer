@@ -1,10 +1,10 @@
 // Minigames (uit versie 1), nu in een paneel bovenop de 3D-wereld.
 import { SC, FL, KRACHT, GEMEEN, SORT, HOUD, SORT_LABELS, ZIN, AN } from './content.js';
-import { S, save, has } from './state.js';
+import { S, save, has, logAnswer } from './state.js';
 import { SND, tone } from './audio.js';
 import { confetti, overlay, portraitImg } from './ui.js';
 
-let panel = null, MASCOT_WHO = 'uil';
+let panel = null, MASCOT_WHO = 'uil', LEVEL = -1;
 const app = { querySelectorAll: s => panel.querySelectorAll(s), querySelector: s => panel.querySelector(s), get scrollTop() { return 0; }, set scrollTop(v) { if (panel) panel.scrollTop = v; } };
 const $ = s => panel.querySelector(s);
 let current = 'act';
@@ -28,7 +28,7 @@ function bindX() { const x = $('#x'); if (x) x.onclick = quitAsk; }
 
 // acts: lijst opdrachten; opts: { el, npc, onEnd(ctx), onQuit() }
 export function runActs(acts, opts) {
-  panel = opts.el; MASCOT_WHO = opts.npc || 'uil'; onQuitCb = opts.onQuit;
+  panel = opts.el; MASCOT_WHO = opts.npc || 'uil'; onQuitCb = opts.onQuit; LEVEL = opts.level ?? -1;
   const extra = has('kristal') ? 3 : 0;
   acts = acts.map(a => ({ ...a, timer: a.timer ? a.timer + extra : a.timer, time: a.time ? a.time + extra : a.time }));
   const ctx = { ok: 0, total: 0, combo: 0, best: 0 };
@@ -74,7 +74,7 @@ const ACT = {
       let answered=false;
       const answer=(o)=>{
         if(answered) return; answered=true; clearTimers();
-        ctx.total++;
+        ctx.total++; logAnswer({ type: 'kies', id: ids[n], q: s.q, k: o, lvl: LEVEL });
         app.querySelectorAll(".opt").forEach(b=>{ b.disabled=true;
           if(b.dataset.o==="beer") b.classList.add("right"); else if(b.dataset.o===o) b.classList.add("wrong"); else b.classList.add("dim"); });
         let html;
@@ -111,7 +111,7 @@ const ACT = {
       let answered=false;
       const answer=(k)=>{
         if(answered) return; answered=true; clearTimers();
-        ctx.total++;
+        ctx.total++; logAnswer({ type: 'flits', q: f.z, k, lvl: LEVEL });
         app.querySelectorAll(".opt").forEach(b=>{ b.disabled=true;
           if(b.dataset.k==="beer") b.classList.add("right"); else if(b.dataset.k===k) b.classList.add("wrong"); else b.classList.add("dim"); });
         let wait;
@@ -156,7 +156,7 @@ const ACT = {
       });
     }
     function finish(){
-      ctx.total++; if(!missed) ctx.ok++;
+      ctx.total++; if(!missed) ctx.ok++; logAnswer({ type: 'zin', q: Z.sit, k: missed ? 'fout' : 'beer', lvl: LEVEL });
       show(head(`<div class="grow"></div>${MASCOT()}
         <div class="card mt"><p class="center">Jouw Beer-zin:</p><div class="bigsay">“${parts.join(" ")}”</div>
         <p class="center">Sta op als een beer en zeg hem nu <b>hardop</b> in je beer-stem! 🗣️</p></div>
@@ -234,7 +234,7 @@ const ACT = {
         $("#fb").scrollIntoView({behavior:"smooth",block:"start"});
         let ans=false;
         $("#fb").querySelectorAll(".opt").forEach(o=>o.onclick=()=>{
-          if(ans) return; ans=true; ctx.total++;
+          if(ans) return; ans=true; ctx.total++; logAnswer({ type: 'stem', q: 'Welke stem werkt het best?', k: o.dataset.k, lvl: LEVEL });
           if(o.dataset.k==="beer"){ ctx.ok++; SND.good(); o.classList.add("right"); $("#fb2").innerHTML=`<div class="fb good"><b>Ja!</b> De Beer-stem is rustig én stevig. Dan weten ze: jij meent het.</div>`; }
           else { SND.bad(); o.classList.add("wrong"); $("#fb2").innerHTML=`<div class="fb bad">${o.dataset.k==="muis"?"Muis-stem is zo zacht, dan luistert niemand.":"Draak-stem klinkt eng en boos, dan wordt het ruzie."} De <b>Beer-stem</b> werkt het best: rustig én stevig.</div>`; }
           $("#fb2").innerHTML+=`<div class="mt center"><button class="btn green" id="nx">Verder ➜</button></div>`;
@@ -284,7 +284,7 @@ const ACT = {
     function end(){
       clearTimers();
       S.bestThoughts=Math.max(S.bestThoughts||0,score); save();
-      ctx.total++; ctx.ok += Math.min(1, score/a.target);
+      ctx.total++; ctx.ok += Math.min(1, score/a.target); logAnswer({ type: 'gedachten', q: 'Gedachten omdraaien', k: score >= a.target ? 'beer' : 'deels', score, target: a.target, lvl: LEVEL });
       SND.win(); if(score>=a.target) confetti(50);
       show(head(`<div class="grow"></div>${MASCOT()}<h2 class="center">${score} punten!</h2>
         <p class="center">${score>=a.target?"Wauw, jij bent een echte gedachten-vanger!":"Goed geoefend! Hoe vaker je het doet, hoe beter je wordt."}</p>
@@ -310,7 +310,7 @@ const ACT = {
       let ans=false;
       app.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
         if(ans) return; ans=true; ctx.total++;
-        const ok=b.dataset.a===it.a;
+        const ok=b.dataset.a===it.a; logAnswer({ type: 'sorteer', q: it.t, k: ok ? 'beer' : 'fout', want: it.a, lvl: LEVEL });
         app.querySelectorAll(".opt").forEach(x=>{ x.disabled=true; if(x.dataset.a===it.a) x.classList.add("right"); else x.classList.add(ok?"dim":"wrong"); });
         if(ok){ ctx.ok++; SND.good(); } else SND.bad();
         $("#fb").innerHTML=`<div class="fb ${ok?"good":"bad"}"><b>${ok?"Goed!":"Net niet."}</b> ${it.u}</div><div class="mt center"><button class="btn green" id="nx">Verder ➜</button></div>`;

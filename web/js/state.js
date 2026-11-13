@@ -8,7 +8,10 @@ export function fresh() {
     // nieuw in de 3D-versie
     v: 2, items: [], rewards: {}, stars: [], moed: 0, fur: 'bruin', furs: ['bruin'],
     side: { day: '', foxes: 0, bubbles: [], rust: false, claimed: [] },
-    mistGone: false, chestOpen: false, music: true, sound: true, seenIntro: false, pos: null, tips: {}
+    mistGone: false, chestOpen: false, music: true, sound: true, seenIntro: false, pos: null, tips: {},
+    // awards (3D-print) en ouderrapport
+    awards: {}, awardsShown: [], log: [], parentEmail: '', mailUrl: '', reportEvery: 3, reportAward: true,
+    lastReport: { done: 0, t: 0, log: 0 }, mailQueue: [], awardIntro: false
   };
 }
 
@@ -19,6 +22,8 @@ function load() {
     const s = Object.assign(fresh(), raw ? JSON.parse(raw) : {});
     s.side = Object.assign(fresh().side, s.side || {});
     if (!Array.isArray(s.items)) s.items = [];
+    for (const k of ['awards', 'lastReport']) if (!s[k] || typeof s[k] !== 'object') s[k] = fresh()[k];
+    for (const k of ['awardsShown', 'log', 'mailQueue']) if (!Array.isArray(s[k])) s[k] = [];
     return s;
   } catch (e) { return fresh(); }
 }
@@ -48,6 +53,16 @@ export function isUnlocked(i) {
 export const nextQuest = () => LEVELS.findIndex((_, i) => !S.done[i]);
 export const waitingForTomorrow = i => i > 0 && !S.parent && S.done[i - 1] && S.done[i - 1].date === today() && !S.done[i];
 export const has = item => S.items.includes(item);
+
+// Elk antwoord bewaren (voor het ouderrapport). Houdt de laatste 600 bij.
+export function logAnswer(e) {
+  try {
+    e.t = Date.now();
+    S.log.push(e);
+    if (S.log.length > 600) { const cut = S.log.length - 600; S.log.splice(0, cut); S.lastReport.log = Math.max(0, (S.lastReport.log || 0) - cut); }
+    save();
+  } catch (x) {}
+}
 export const legend = () => S.items.includes('kroon');
 
 // Back-upcode: hele voortgang als tekst om over te zetten naar een ander apparaat

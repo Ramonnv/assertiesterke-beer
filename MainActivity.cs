@@ -137,7 +137,20 @@ public class MainActivity : Activity
 
         public override bool ShouldOverrideUrlLoading(WebView? view, IWebResourceRequest? request)
         {
-            return request?.Url?.Host != Host; // geen andere websites openen in de app
+            var url = request?.Url;
+            if (url == null || url.Host == Host) return false;
+            // mail en externe links (uitleg, printbestanden) openen in de eigen apps van het apparaat
+            if (url.Scheme == "mailto" || url.Scheme == "https" || url.Scheme == "http")
+            {
+                try
+                {
+                    var intent = new Android.Content.Intent(url.Scheme == "mailto" ? Android.Content.Intent.ActionSendto : Android.Content.Intent.ActionView, url);
+                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
+                    view?.Context?.StartActivity(intent);
+                }
+                catch (System.Exception) { }
+            }
+            return true;
         }
     }
 }

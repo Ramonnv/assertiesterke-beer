@@ -1,11 +1,13 @@
 // Sterke Beer: Moedeiland – de regie van het spel.
 import { LEVELS, FL, RANKS } from './content.js';
-import { S, save, touchDay, today, totalStars, doneCount, rankOf, nextRank, isUnlocked, nextQuest, waitingForTomorrow, has, backupCode, restoreCode, fresh, replaceState } from './state.js';
+import { S, save, logAnswer, touchDay, today, totalStars, doneCount, rankOf, nextRank, isUnlocked, nextQuest, waitingForTomorrow, has, backupCode, restoreCode, fresh, replaceState } from './state.js';
 import { SND, ac, musicOn } from './audio.js';
 import { NPCS, QUESTS, ITEMS, ITEM_ORDER, SHOP } from './story.js';
 import * as W from './world.js';
 import * as M from './models.js';
 import { runActs, clearTimers } from './activities.js';
+import { syncAwards, earnedAwards, pendingAwards, setCollected, awardName, awardFile, awardImg, ALL_AWARDS } from './awards.js';
+import { buildReport, sendReport, flushQueue, mailtoLink } from './report.js';
 import { $, say, toast, banner, overlay, confetti, setupControls, buildMinimap, drawMinimap, pickReward, portraitImg, iconImg, ITEM_EMOJI, fill } from './ui.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -28,6 +30,8 @@ async function boot() {
   }
   buildMinimap(W.height, W.isWater);
   setupControls(W.input, { act, brul, fluit, schelp, menu: openMenu, zoom: f => W.setZoom(W.getZoom() * f) });
+  $('#giftBtn').onclick = () => { if (!busy) { SND.tap(); prizeCabinet(); } };
+  flushQueue();
   $('#loading').classList.add('gone');
   showTitle();
   requestAnimationFrame(loop);
@@ -79,6 +83,59 @@ async function startGame() {
     S.seenIntro = true; save(); busy = false; W.input.frozen = false;
     tip('move', isTouch() ? '👆 Sleep met je duim links op het scherm om te lopen.' : '⌨️ Lopen met WASD of de pijltjes, springen met spatie, praten met E.');
   }
+  if (!S.awardIntro) await awardIntro();
+}
+
+/* ================= awards (echte 3D-prints) ================= */
+const awardTile = (id, cls = '', sub = '') => `<div class="award ${cls}"><img src="${awardImg(id)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'${id === 'poppetje' ? '🐻' : (ITEM_EMOJI[id] || '🎁')}',style:'font-size:60px'}))"><b>${awardName(id)}</b><small>${sub}</small></div>`;
+// Eerste keer na de update: laat zien welke awards ze al verdiend had
+async function awardIntro() {
+  syncAwards();
+  const earned = earnedAwards();
+  S.awardIntro = true; save();
+  if (!earned.length) return;
+  busy = true; W.input.frozen = true;
+  await new Promise(res => {
+    confetti(60); SND.win();
+    const o = overlay(`<div class="res-title">🎁 Nieuw: echte awards!</div>
+      <p>Elke superkracht bestaat nu ook <b>echt</b>, als 3D-geprint onderdeel voor je eigen Beer-poppetje!</p>
+      <p>Deze heb je al verdiend:</p>
+      <div class="award-grid">${earned.map(id => awardTile(id, S.awards[id].got ? 'got' : 'new', S.awards[id].got ? 'opgehaald ✔' : 'nog ophalen')).join('')}</div>
+      <p>Vraag papa of mama om ze te printen en haal ze bij hen op! 🐻</p>
+      <p class="muted">Papa of mama: vul in de Ouderhoek (menu ☰ → Ouders) je e-mailadres in, dan krijg je een rapport met wat goed gaat.</p>
+      <button class="btn big green mt" id="ok">Gaaf! 🎉</button>`, 'result');
+    o.querySelector('#ok').onclick = () => { SND.tap(); o.remove(); res(); };
+  });
+  busy = false; W.input.frozen = false;
+}
+function awardNotice(ids) {
+  return new Promise(res => {
+    confetti(90); SND.win(); W.fireworks(8);
+    const first = ids.includes('poppetje');
+    const o = overlay(`<div class="res-title">🎁 Award vrijgespeeld!</div>
+      ${first ? '<p>Je hebt je eigen <b>Beer-poppetje</b> verdiend! Daar klik je straks al je superkrachten op.</p>' : ''}
+      <div class="award-grid">${ids.map(id => awardTile(id, 'new', id === 'poppetje' ? 'jouw eigen Beer' : '⚡ ' + (ITEMS[id] ? ITEMS[id].power : ''))).join('')}</div>
+      <p>Haal ${ids.length === 1 ? 'je <b>' + awardName(ids[0]) + '</b>' : 'je awards'} op bij <b>papa of mama</b>! 🐻</p>
+      <button class="btn big green mt" id="ok">Top! 💪</button>`, 'result');
+    o.querySelector('#ok').onclick = () => { SND.tap(); o.remove(); res(); };
+  });
+}
+function prizeCabinet() {
+  syncAwards();
+  busy = true; W.input.frozen = true;
+  const earned = earnedAwards(), todo = ALL_AWARDS.filter(id => !S.awards[id]);
+  const o = overlay(`<div class="res-title">🎁 Mijn awards</div>
+    <p class="muted">Echte 3D-geprinte onderdelen voor je Beer-poppetje.</p>
+    ${earned.length ? `<div class="award-grid">${earned.map(id => awardTile(id, S.awards[id].got ? '' : 'new', S.awards[id].got ? 'opgehaald ✔' : 'ophalen bij papa of mama')).join('')}</div>`
+      : '<p>Haal Missie 1 en je krijgt je eigen <b>Beer-poppetje</b>!</p>'}
+    ${todo.length ? `<p class="muted">Nog ${todo.length} te winnen. Elke missie brengt je dichterbij!</p>` : '<p>Je hebt ze allemaal! 👑</p>'}
+    <button class="btn big green mt" id="ok">Sluiten</button>`, 'result');
+  o.querySelector('#ok').onclick = () => { SND.tap(); o.remove(); busy = false; W.input.frozen = false; };
+}
+function afterQuestMail(newly) {
+  const due = doneCount() - ((S.lastReport && S.lastReport.done) || 0) >= (S.reportEvery || 3);
+  if (due) sendReport('periodiek', newly);
+  else if (newly.length && S.reportAward) sendReport('award', newly);
 }
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const isTouch = () => matchMedia('(pointer: coarse)').matches;
@@ -115,6 +172,8 @@ function updateHUD() {
   $('#pw-brul').classList.toggle('on', has('megafoon'));
   $('#pw-fluit').classList.toggle('on', has('fluit'));
   $('#pw-schelp').classList.toggle('on', has('schelp'));
+  const pn = pendingAwards().length, gn = $('#giftN');
+  if (gn.textContent !== (pn ? String(pn) : '')) { gn.textContent = pn ? pn : ''; gn.classList.toggle('on', pn > 0); }
   drawMinimap(W.minimapData());
 }
 function refreshQuest() {
@@ -193,7 +252,7 @@ function runQuest(i, replay) {
   openPanel();
   const npc = QUESTS[i].npc;
   runActs(LEVELS[i].acts, {
-    el: panel, npc,
+    el: panel, npc, level: i,
     onEnd: ctx => finishQuest(i, ctx, replay),
     onQuit: closePanel
   });
@@ -230,9 +289,11 @@ async function finishQuest(i, ctx, replay) {
       await wait(2600);
       const hints = { cape: 'Probeer de Hoge Klif in het oosten eens. Spring maar!', lantaarn: 'Het Schaduwbos in het zuidwesten is nu niet meer eng.', megafoon: 'Druk op 📣 bij het Mistpad in het noordwesten!', ballon: 'Spring van de Hoge Klif en houd springen ingedrukt… zie je dat eilandje?', schelp: 'Tik op 🐚 om te reizen.', fluit: 'Tik op 🎶 bij de vossen.' };
       if (hints[item]) toast('💡 ' + hints[item], 5000);
-      else toast(`🖨️ Je ${ITEMS[item].name} bestaat ook echt! Vraag papa of mama om hem te 3D-printen voor je Beer-poppetje.`, 5000);
     }
+    const newly = syncAwards();
+    if (newly.length) await awardNotice(newly);
     await missionCard(i);
+    afterQuestMail(newly);
   }
   closePanel();
 }
@@ -322,6 +383,7 @@ function onFox(f) {
     if (done) return; done = true; clearTimeout(to);
     d.querySelectorAll('.opt').forEach(b => { b.disabled = true; b.classList.add(b.dataset.k === 'beer' ? 'right' : b.dataset.k === k ? 'wrong' : 'dim'); });
     const won = k === 'beer';
+    logAnswer({ type: 'vos', q: line.z, k });
     if (won) {
       SND.good(); const g = (has('bril') ? 2 : 1) * 2; S.moed += g; save();
       sp.innerHTML = '“Pfff… saai. Ik ga wel.”';
@@ -464,11 +526,42 @@ function menuOuders() {
       <img src="print/printset.png" alt="" style="width:100%;border-radius:16px;margin:6px 0" onerror="this.remove()">
       <p>Gewonnen tot nu toe: <b>${S.items.length ? S.items.map(i => ITEMS[i].name).join(', ') : 'nog niets'}</b></p>
       <p>Download: <a href="print/SterkeBeer-3Dprint.zip" target="_blank">SterkeBeer-3Dprint.zip</a> (ook te vinden op GitHub onder Releases).</p></div>
+    <div class="card"><h3>📧 Rapport &amp; awards</h3>
+      <p>Na elke paar missies krijg je een mail: wat goed ging, waar ze nog op kan oefenen, en welke awards ze heeft vrijgespeeld (met plaatjes).</p>
+      <label>Jouw e-mailadres</label><input class="field" id="pe" type="email" placeholder="naam@voorbeeld.nl" value="${esc(S.parentEmail || '')}">
+      <label>Mail-koppeling (web-app-adres van je Google Apps Script)</label><input class="field" id="pu" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.mailUrl || '')}">
+      <p class="muted" style="font-size:13px">Zonder koppeling opent “Verstuur nu” je eigen mail-app. Uitleg om de koppeling (5 minuten, gratis) te maken: <a href="https://github.com/Ramonnv/assertiesterke-beer/blob/main/tools/MAIL-KOPPELING.md" target="_blank">MAIL-KOPPELING</a>.</p>
+      <label>Rapport sturen na elke</label><select class="field" id="pf">${[1, 2, 3, 5, 7].map(n => `<option value="${n}" ${+S.reportEvery === n ? 'selected' : ''}>${n} ${n === 1 ? 'missie' : 'missies'}</option>`).join('')}</select>
+      <label class="toggle"><input type="checkbox" id="pa" ${S.reportAward ? 'checked' : ''}> Ook meteen mailen als er een award is vrijgespeeld</label>
+      <div class="row mt"><button class="btn small white" id="rv">👀 Bekijk rapport</button><button class="btn small purple" id="rsn">📨 Verstuur nu</button></div>
+      ${S.mailQueue && S.mailQueue.length ? `<p class="muted">${S.mailQueue.length} mail(s) wachten op internet.</p>` : ''}
+      <h3 class="mt">🖨️ Uit te reiken awards</h3>
+      <p class="muted" style="font-size:13px">Vink aan wat je al geprint en gegeven hebt. Het poppetje hoort bij Missie 1, elk accessoire bij een superkracht.</p>
+      <div id="awl">${earnedAwards().map(id => `<label class="award-row"><img src="${awardImg(id)}" alt=""><span><b>${awardName(id)}</b><br><code>${awardFile(id)}</code></span><input type="checkbox" data-aw="${id}" ${S.awards[id].got ? 'checked' : ''}> uitgereikt</label>`).join('') || '<p>Nog geen awards verdiend.</p>'}</div></div>
     <div class="card"><label class="toggle"><input type="checkbox" id="pm" ${S.parent ? 'checked' : ''}> Alle missies openzetten (niet wachten tot morgen)</label>
       <div class="row mt"><button class="btn small white" id="nm">✏️ Naam wijzigen</button><button class="btn small red" id="reset">🗑️ Opnieuw beginnen</button></div></div></div>`;
   const m = mbody();
   m.querySelector('#cp').onclick = async () => { const t = m.querySelector('#bk'); t.select(); try { await navigator.clipboard.writeText(t.value); toast('📋 Gekopieerd!'); } catch (e) { document.execCommand && document.execCommand('copy'); toast('Selecteer de code en kopieer hem.'); } };
   m.querySelector('#rsb').onclick = () => { try { restoreCode(m.querySelector('#rs').value); toast('✅ Voortgang teruggezet! Het spel herstart.'); setTimeout(() => location.reload(), 1200); } catch (e) { SND.bad(); toast('❌ Deze code klopt niet.'); } };
+  const setMail = () => {
+    const e = m.querySelector('#pe').value.trim(), u = m.querySelector('#pu').value.trim();
+    const firstTime = !S.parentEmail && e;
+    S.parentEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : ''; S.mailUrl = /^https:\/\/script\.google(usercontent)?\.com\//.test(u) ? u : '';
+    if (e && !S.parentEmail) toast('❌ Dat e-mailadres klopt niet helemaal.');
+    if (u && !S.mailUrl) toast('❌ De koppeling moet beginnen met https://script.google.com/');
+    save();
+    if (firstTime && S.parentEmail && S.mailUrl) { sendReport('overzicht'); toast('📨 Eerste overzicht verstuurd!'); }
+  };
+  m.querySelector('#pe').onchange = setMail; m.querySelector('#pu').onchange = setMail;
+  m.querySelector('#pf').onchange = e => { S.reportEvery = +e.target.value; save(); };
+  m.querySelector('#pa').onchange = e => { S.reportAward = e.target.checked; save(); };
+  m.querySelector('#rv').onclick = () => { const r = buildReport('overzicht'); const o = overlay(`<div class="report-frame">${r.html}</div><button class="btn big green mt" id="ok">Sluiten</button>`, 'result'); o.querySelector('#ok').onclick = () => o.remove(); };
+  m.querySelector('#rsn').onclick = () => {
+    setMail();
+    if (S.parentEmail && S.mailUrl) { const r = sendReport('overzicht'); toast(r === 'verstuurd' ? '📨 Rapport verstuurd!' : 'Nog niet verstuurd.'); }
+    else { location.href = mailtoLink('overzicht'); }
+  };
+  m.querySelectorAll('[data-aw]').forEach(c => c.onchange = () => { setCollected(c.dataset.aw, c.checked); if (c.checked) SND.good(); });
   m.querySelector('#pm').onchange = e => { S.parent = e.target.checked; save(); refreshQuest(); };
   m.querySelector('#nm').onclick = () => { const o = overlay(`<h3>Nieuwe naam</h3><input class="name" id="nn" maxlength="16" value="${esc(S.name)}"><div class="row center mt"><button class="btn white" id="c">Annuleer</button><button class="btn green" id="s">Opslaan</button></div>`); o.querySelector('#c').onclick = () => o.remove(); o.querySelector('#s').onclick = () => { const v = o.querySelector('#nn').value.trim(); if (v) { S.name = v; save(); } o.remove(); }; };
   m.querySelector('#reset').onclick = () => { const o = overlay(`<div class="ov-emoji">⚠️</div><h3>Alles wissen?</h3><p>Alle sterren, missies en superkrachten gaan weg.</p><div class="row center mt"><button class="btn white" id="c">Nee</button><button class="btn red" id="s">Ja, wissen</button></div>`); o.querySelector('#c').onclick = () => o.remove(); o.querySelector('#s').onclick = () => { replaceState(fresh()); location.reload(); }; };
