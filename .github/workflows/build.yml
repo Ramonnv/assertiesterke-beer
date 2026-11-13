@@ -94,12 +94,27 @@ jobs:
         run: dotnet workload install android
       - name: Spel in de app zetten
         run: rm -rf Assets && cp -r web Assets && rm -f Assets/dev-*.html
+      # Vaste sleutel, zodat elke nieuwe APK over de vorige heen kan (zonder voortgang te verliezen)
+      - name: Ondertekensleutel
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/sterkebeer.keystore"; echo "SIGN=1" >> "$GITHUB_ENV";
+          else echo "::warning::Geen vaste ondertekensleutel ingesteld (secret ANDROID_KEYSTORE_B64). Updates kunnen dan niet over de bestaande app heen."; fi
       - name: APK bouwen
-        run: dotnet publish SterkeBeer.csproj -f net10.0-android -c Release "-p:AndroidSdkDirectory=$ANDROID_SDK_ROOT"
+        env:
+          KP: ${{ secrets.ANDROID_KEY_PASS }}
+        run: |
+          CODE=$((100 + GITHUB_RUN_NUMBER))
+          EXTRA=""
+          if [ "$SIGN" = "1" ]; then EXTRA="-p:AndroidKeyStore=true -p:AndroidSigningKeyStore=$RUNNER_TEMP/sterkebeer.keystore -p:AndroidSigningKeyAlias=sterkebeer -p:AndroidSigningKeyPass=env:KP -p:AndroidSigningStorePass=env:KP"; fi
+          dotnet publish SterkeBeer.csproj -f net10.0-android -c Release "-p:AndroidSdkDirectory=$ANDROID_SDK_ROOT" -p:ApplicationVersion=$CODE -p:ApplicationDisplayVersion=2.$GITHUB_RUN_NUMBER $EXTRA
       - name: APK klaarzetten
-        run: cp "$(ls bin/Release/net10.0-android/publish/*-Signed.apk | head -1)" SterkeBeer.apk && ls -la SterkeBeer.apk
+        run: |
+          cp "$(ls bin/Release/net10.0-android/publish/*-Signed.apk | head -1)" SterkeBeer.apk && ls -la SterkeBeer.apk
+          echo "{\"code\": $((100 + GITHUB_RUN_NUMBER)), \"name\": \"2.$GITHUB_RUN_NUMBER\", \"vast\": ${SIGN:-0}}" > versie.json && cat versie.json
       - uses: actions/upload-artifact@v4
-        with: { name: SterkeBeer-apk, path: SterkeBeer.apk }
+        with: { name: SterkeBeer-apk, path: "SterkeBeer.apk\nversie.json" }
       - name: Release bijwerken
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,7 +131,7 @@ jobs:
 
   # 3. De web-app op GitHub Pages
   web:
-    needs: [modellen, print]
+    needs: [modellen, print, apk]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -126,8 +141,10 @@ jobs:
         with: { name: web, path: web }
       - uses: actions/download-artifact@v4
         with: { name: print, path: printart }
+      - uses: actions/download-artifact@v4
+        with: { name: SterkeBeer-apk, path: web/apk }
       - name: Printbestanden op de website
-        run: mkdir -p web/print && cp printart/SterkeBeer-3Dprint.zip printart/print/printset.png web/print/
+        run: mkdir -p web/print && cp printart/SterkeBeer-3Dprint.zip printart/print/printset.png web/print/ && ls -la web/apk
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: web }

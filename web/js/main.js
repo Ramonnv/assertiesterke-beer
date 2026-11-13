@@ -526,6 +526,10 @@ function menuOuders() {
       <img src="print/printset.png" alt="" style="width:100%;border-radius:16px;margin:6px 0" onerror="this.remove()">
       <p>Gewonnen tot nu toe: <b>${S.items.length ? S.items.map(i => ITEMS[i].name).join(', ') : 'nog niets'}</b></p>
       <p>Download: <a href="print/SterkeBeer-3Dprint.zip" target="_blank">SterkeBeer-3Dprint.zip</a> (ook te vinden op GitHub onder Releases).</p></div>
+    <div class="card"><h3>🔄 Nieuwste versie</h3>
+      <p id="upinfo" class="muted">${window.SB_APP ? 'Versie opzoeken…' : 'Je speelt de web-app.'}</p>
+      <div class="row"><button class="btn small purple" id="upbtn">${window.SB_APP ? '🔍 Zoek update' : '🔄 Nieuwste versie laden'}</button></div>
+      <p class="muted" style="font-size:13px">Je voortgang blijft bewaard.</p></div>
     <div class="card"><h3>📧 Rapport &amp; awards</h3>
       <p>Na elke paar missies krijg je een mail: wat goed ging, waar ze nog op kan oefenen, en welke awards ze heeft vrijgespeeld (met plaatjes).</p>
       <label>Jouw e-mailadres</label><input class="field" id="pe" type="email" placeholder="naam@voorbeeld.nl" value="${esc(S.parentEmail || '')}">
@@ -561,10 +565,55 @@ function menuOuders() {
     if (S.parentEmail && S.mailUrl) { const r = sendReport('overzicht'); toast(r === 'verstuurd' ? '📨 Rapport verstuurd!' : 'Nog niet verstuurd.'); }
     else { location.href = mailtoLink('overzicht'); }
   };
+  setupUpdate(m);
   m.querySelectorAll('[data-aw]').forEach(c => c.onchange = () => { setCollected(c.dataset.aw, c.checked); if (c.checked) SND.good(); });
   m.querySelector('#pm').onchange = e => { S.parent = e.target.checked; save(); refreshQuest(); };
   m.querySelector('#nm').onclick = () => { const o = overlay(`<h3>Nieuwe naam</h3><input class="name" id="nn" maxlength="16" value="${esc(S.name)}"><div class="row center mt"><button class="btn white" id="c">Annuleer</button><button class="btn green" id="s">Opslaan</button></div>`); o.querySelector('#c').onclick = () => o.remove(); o.querySelector('#s').onclick = () => { const v = o.querySelector('#nn').value.trim(); if (v) { S.name = v; save(); } o.remove(); }; };
   m.querySelector('#reset').onclick = () => { const o = overlay(`<div class="ov-emoji">⚠️</div><h3>Alles wissen?</h3><p>Alle sterren, missies en superkrachten gaan weg.</p><div class="row center mt"><button class="btn white" id="c">Nee</button><button class="btn red" id="s">Ja, wissen</button></div>`); o.querySelector('#c').onclick = () => o.remove(); o.querySelector('#s').onclick = () => { replaceState(fresh()); location.reload(); }; };
+}
+
+/* ================= bijwerken ================= */
+function setupUpdate(m) {
+  const btn = m.querySelector("#upbtn");
+  const say = h => { const el = document.querySelector('#upinfo'); if (el) el.innerHTML = h; };
+  if (!window.SB_APP) {
+    btn.onclick = async () => {
+      say('Bezig met laden…');
+      try { const regs = await navigator.serviceWorker?.getRegistrations?.() || []; await Promise.all(regs.map(r => r.unregister())); } catch (e) {}
+      try { const ks = await window.caches.keys(); await Promise.all(ks.map(k => window.caches.delete(k))); } catch (e) {}
+      location.replace(location.pathname + '?v=' + Date.now());
+    };
+    return;
+  }
+  const getJ = u => fetch(u, { cache: 'no-store' }).then(r => r.json());
+  getJ('/__app/info').then(v => say(`Geïnstalleerd: versie <b>${esc(v.name || '?')}</b>`)).catch(() => say('Versie onbekend.'));
+  let latest = null;
+  btn.onclick = async () => {
+    if (latest) { btn.disabled = true; say('Even geduld…'); getJ('/__app/update').catch(() => {}); return; }
+    say('Zoeken naar een nieuwe versie…');
+    try {
+      const c = await getJ('/__app/check');
+      if (c.error || !c.latest) { say('❌ Kon niet zoeken (is er internet?).'); return; }
+      if (c.latest.code > c.installed.code) {
+        latest = c.latest;
+        say(`Nieuwe versie <b>${esc(c.latest.name)}</b> beschikbaar (jij hebt ${esc(c.installed.name)}).`);
+        btn.textContent = '⬇️ Installeer update';
+      } else say(`✅ Je hebt de nieuwste versie (${esc(c.installed.name)}).`);
+    } catch (e) { say('❌ Zoeken lukte niet.'); }
+  };
+  window.onAppUpdate = st => {
+    const b = document.querySelector('#upbtn');
+    if (st.s === 'toestemming') { if (b) b.disabled = false; say('Android vraagt eerst toestemming. Zet in het scherm dat opent <b>“Toestaan van deze bron”</b> aan, ga terug en tik nog een keer op <b>Installeer update</b>.'); }
+    else if (st.s === 'downloaden') say(`⬇️ Downloaden… ${st.p}%`);
+    else if (st.s === 'installeren' || st.s === 'bevestigen') say('📦 Tik in het venster van Android op <b>Bijwerken</b> (of Installeren). Het spel start daarna opnieuw.');
+    else if (st.s === 'klaar') say('✅ Bijgewerkt!');
+    else if (st.s === 'fout') {
+      if (b) b.disabled = false;
+      say(/conflict|signature|handtek|INCOMPATIBLE|code 5\b/i.test(st.m)
+        ? '❌ Deze update past niet over de huidige app (andere sleutel). Kopieer eerst je back-upcode hierboven, verwijder de app, installeer hem opnieuw en zet de code terug. Daarna werkt bijwerken voortaan met deze knop.'
+        : '❌ Bijwerken lukte niet: ' + esc(st.m || 'onbekende fout'));
+    }
+  };
 }
 
 // Android-terugknop
